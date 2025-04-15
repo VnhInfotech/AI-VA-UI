@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useNavigate } from "react-router-dom";
-
+import ImagePostDTO from "../utils/ImagePostDTO";
 
 const Search = () => {
     const navigate = useNavigate();
@@ -134,10 +134,12 @@ const Search = () => {
                                     <button
                                         className="w-full mt-4 px-6 py-3 text-white text-lg font-medium bg-[#C731CD] rounded-lg hover:bg-[#a855f7] transition duration-300"
                                         onClick={() => {
-                                            localStorage.setItem("selectedImage", selectedImage);
-                                            localStorage.setItem("selectedCaption", templateText);
-                                            navigate("/search/finalize");
-                                        }}
+                                            const postDTO = new ImagePostDTO({
+                                              imageUrl: selectedImage,
+                                              caption: templateText,
+                                            });
+                                            navigate("/search/finalize", { state: { post: postDTO } });
+                                          }}                                          
                                     >
                                         Next
                                     </button>

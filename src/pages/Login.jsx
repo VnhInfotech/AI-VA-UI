@@ -34,7 +34,7 @@ export default function Login() {
       if (response.ok) {
         // Store user data and token in context and local storage
         login(data.user, data.token);
-        navigate("/dashboard"); // Redirect to dashboard after successful login
+        navigate("/search"); // Redirect to dashboard after successful login
       } else {
         alert(data.message); // Show error message
       }

@@ -1,21 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserContext } from "../context/UserContext";
-import { FaTwitter, FaLinkedin, FaTiktok } from "react-icons/fa";
 import rocket from "../assets/images/rocket.png";
-
-import Header from "../components/Header";
 import HeroSection from "../components/HeroSection";
 import SearchSection from "../components/SearchSection";
 import FeatureSection from "../components/FeatureSection";
 import PricingSection from "../components/PricingSection";
 import ConnectedAppSection from "../components/ConnectedAppSection";
 import Faqs from "../components/Faqs";
-import Page from "../components/Page";
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { user, logout } = useUserContext();
+  const { user } = useUserContext();
   const planList = [
     {
       title: "Free Plan",

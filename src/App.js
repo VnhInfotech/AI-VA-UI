@@ -11,8 +11,12 @@ import Footer from './components/Footer'; // for public pages
 import Search from './pages/Search';
 import Finalize from './pages/Finalize';
 import Settings from './pages/Settings';
+import SMM from './pages/SMM';
 import { SearchProvider } from "./context/SearchContext";
-
+import Drafts from './pages/Drafts';
+import Email from './pages/Email';
+import SEO from './pages/SEO';
+import SMS from './pages/SMS'
 
 function App() {
   return (
@@ -37,6 +41,11 @@ function App() {
               <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
               <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
               <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+              <Route path="/smm" element={<SMM />} />
+              <Route path="/drafts" element={<Drafts />} />
+              <Route path="/seo" element={<SEO />} />
+              <Route path="/sms" element={<SMS />} />
+              <Route path="/email" element={<Email />} />
             </Routes>
           </main>
         </div>

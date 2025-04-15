@@ -17,6 +17,20 @@ export const UserProvider = ({ children }) => {
         }
     }, []);
 
+    useEffect(() => {
+        const handleStorageChange = (e) => {
+            if (e.key === 'token' && e.newValue === null) {
+                logout(); // Token removed (logout from another tab)
+            }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+    
     const login = (userData, token) => {
         setUser(userData);
         setToken(token);

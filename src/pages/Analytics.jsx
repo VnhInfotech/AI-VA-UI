@@ -23,8 +23,7 @@ const Analytics = () => {
 
     if (currentHour >= 5 && currentHour < 12) greet = "Good morning";
     else if (currentHour >= 12 && currentHour < 17) greet = "Good afternoon";
-    else if (currentHour >= 17 && currentHour < 21) greet = "Good evening";
-    else greet = "Good night";
+    else greet = "Good evening";
 
     const firstName = user?.name?.split(" ")[0] || "there";
     setGreeting(`${greet}, ${firstName}!`);

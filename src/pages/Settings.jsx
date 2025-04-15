@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { FaCamera, FaUserCircle } from "react-icons/fa";
 import { useUserContext } from "../context/UserContext";
+import axios from "axios";
 
 const Settings = () => {
   const { user } = useUserContext();
   const [activeTab, setActiveTab] = useState("profile");
+  const token = localStorage.getItem("token");
 
   // Edit Profile States
   const [name, setName] = useState("");
@@ -19,7 +21,7 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-  const [loadingPassword, setLoadingPassword] = useState(false);
+  const [loadingPassword, setLoadingPassword] = useState(false);  
 
   useEffect(() => {
     if (user) {
@@ -30,13 +32,69 @@ const Settings = () => {
     }
   }, [user]);
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setProfileImage(URL.createObjectURL(file));
+  // const handleImageUpload = (e) => {
+  //   const file = e.target.files[0];
+  //   if (file) {
+  //     setProfileImage(URL.createObjectURL(file));
+  //   }
+  // };
+
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put("http://localhost:5000/api/users/update-profile", { name, email, profileImage: profileImage }, {
+        headers: { "x-auth-token": token } 
+      });
+    } catch (err) {
+      console.error("Profile update error", err);
+      alert("Error updating profile");
+    }
+  };
+  
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      return alert("New passwords do not match!");
+    }
+    try {
+      await axios.put("http://localhost:5000/api/users/change-password", {
+        currentPassword,
+        newPassword,
+      }, {
+        headers: { "x-auth-token": token } 
+    });
+      alert("Password changed successfully!");
+      setSuccess(true);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err) {
+      alert(err.response?.data?.message || "Error changing password");
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result;
+  
+        try {
+          const res = await axios.post(
+            "http://localhost:5000/api/users/upload-profile-picture",
+            { image: base64String },
+            { headers: { "x-auth-token": token } }
+          );
+          setProfileImage(res.data.profilePicture);
+        } catch (err) {
+          console.error("Image upload failed", err);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
   if (loadingProfile) {
     return (
       <Layout>
@@ -103,7 +161,7 @@ const Settings = () => {
                 </div>
 
                 {/* User Info Form */}
-                <form className="w-full">
+                <form className="w-full" onSubmit={handleProfileSubmit}>
                   <div className="mb-4">
                     <label className="block text-lg font-medium mb-2">Name</label>
                     <input
@@ -141,7 +199,7 @@ const Settings = () => {
 
           {/* Change Password Content */}
           {activeTab === "password" && (
-            <form className="p-4 w-full max-w-md">
+            <form className="p-4 w-full max-w-md" onSubmit={handlePasswordSubmit}>
               <div className="mb-4">
                 <label className="block text-lg font-medium mb-2">Current Password</label>
                 <input

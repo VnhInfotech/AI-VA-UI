@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useUserContext } from "../context/UserContext";
 import { FaSearch } from "react-icons/fa";
-import Search from "../assets/images/search.png";
 import {
   FaUser,
   FaBell,
-  FaCog,
-  FaLock,
   FaLink,
+  FaCog,
   FaSignOutAlt,
 } from "react-icons/fa";
 import {
@@ -19,7 +17,6 @@ import {
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/images/logo.png";
-import Settings from "../pages/Settings";
 import { useSearchContext } from "../context/SearchContext"; 
 
 const Layout = ({ children }) => {
@@ -140,13 +137,8 @@ const Layout = ({ children }) => {
                   {[
                     {
                       label: "Settings",
-                      icon: <FaUser className="mr-2" />,
+                      icon: <FaCog className="mr-2" />,
                       action: () => navigate("/settings"),
-                    },
-                    {
-                      label: "Connected Apps",
-                      icon: <FaLink className="mr-2" />,
-                      action: () => navigate("/profile/connected-apps"),
                     },
                   ].map(({ label, icon, action }, idx) => (
                     <MenuItem
@@ -246,7 +238,7 @@ const Layout = ({ children }) => {
             </nav>
 
             {/* Footer Section with Line */}
-            <div className="p-4 border-t border-gray-300">
+            {/* <div className="p-4 border-t border-gray-300">
               <button
                 onClick={() => navigate("/settings")}
                 className="w-full flex items-center p-3 text-lg font-medium rounded-lg hover:bg-gray-200 transition"
@@ -259,7 +251,7 @@ const Layout = ({ children }) => {
               >
                 <FaSignOutAlt className="mr-2" /> Logout
               </button>
-            </div>
+            </div> */}
           </aside>
         )}
 
