@@ -1,14 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../components/Layout";
 import { useNavigate } from "react-router-dom";
 import ImagePostDTO from "../utils/ImagePostDTO";
+import { searchImages } from "../utils/pixabay";
+
+const shimmerStyles = `
+.shimmer-box {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-height: 150px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #eeeeee 25%, #dddddd 50%, #eeeeee 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.shimmer-box::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  z-index: -1;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg 270deg,
+    #C731CD 270deg 280deg,
+    transparent 280deg 360deg
+  );
+  animation: border-highlight-spin 4s linear infinite;
+}
+
+// @keyframes border-highlight-spin {
+//   0% {
+//     transform: rotate(0deg);
+//   }
+//   100% {
+//     transform: rotate(360deg);
+//   }
+// }
+
+.shimmer-box::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: white;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes border-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+`;
 
 const Search = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const query = searchParams.get("q") || "your search";
+    const rawQuery = searchParams.get("q");
+    const query = rawQuery && rawQuery.trim() !== "" ? rawQuery.trim() : null;
 
+    // fallback stock image keyword if no search yet
+    const stockQuery = query || "nature"; // or "inspiration", "art", etc.
+    const [images, setImages] = useState([]);
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [imageSize, setImageSize] = useState("1:1");
@@ -16,65 +87,198 @@ const Search = () => {
         `Honoring Two Legends\n\n🔷 Truth & Non-Violence – Mahatma Gandhi\n🔷 Strength & Simplicity – Lal Bahadur Shastri\n\nLet’s follow their ideals for a stronger, united India!\n\n🇮🇳 Happy Gandhi & Shastri Jayanti! 🇮🇳`
     );
 
-    const filters = [
-        "All",
-        "Custom Post",
-        "Custom Reel",
-        "Custom Mockup",
-        "VN Code",
-        "Option 6",
-        "Option 7",
-        "Option 8",
-        "Option 9",
-    ];
+    useEffect(() => {
+        const style = document.createElement("style");
+        style.innerHTML = shimmerStyles;
+        document.head.appendChild(style);
+        return () => {
+            document.head.removeChild(style);
+        };
+    }, []);
 
-    const sampleImage =
-        "https://www.shutterstock.com/image-photo/banff-national-park-lake-minnewanka-600nw-2527379207.jpg";
+    const [isLoadingAI, setIsLoadingAI] = useState(false); // LOADER STATE
+    useEffect(() => {
+        const fetchStockImages = async () => {
+            try {
+                const stockImages = await searchImages(stockQuery); // stockQuery always safe
+                setImages(stockImages);
+            } catch (err) {
+                console.error("Error fetching stock images:", err);
+            }
+        };
 
+        const fetchVertexImages = async () => {
+            if (!query) return; // Only run if user explicitly searched something
+
+            try {
+                setIsLoadingAI(true);
+                const res = await fetch("http://localhost:5000/api/images/generate-image-async", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: query,
+                        sampleCount: 1,
+                        aspectRatio: imageSize,
+                    }),
+                });
+
+                const data = await res.json();
+                const requestId = data.requestId;
+                if (!requestId) return console.warn("No requestId received");
+
+                const pollResult = async (retryCount = 15) => {
+                    for (let i = 0; i < retryCount; i++) {
+                        await new Promise((r) => setTimeout(r, 2000));
+
+                        const res = await fetch(`http://localhost:5000/api/images/check-image-result/${requestId}`);
+                        const result = await res.json();
+
+                        if (Array.isArray(result.imageBase64s)) {
+                            const vertexImages = result.imageBase64s.map((base64) => ({
+                                url: `data:image/png;base64,${base64}`,
+                                alt: `Generated by Vertex AI for ${query}`,
+                                source: "vertex",
+                            }));
+                            setImages((prev) => [...prev, ...vertexImages]); // append
+                            return;
+                        }
+
+                        if (result.error) {
+                            console.warn("Vertex AI error:", result.error);
+                            return;
+                        }
+                    }
+                    console.warn("Imagen generation timed out or failed");
+                };
+
+                await pollResult();
+            } catch (err) {
+                console.error("Error fetching Imagen images:", err);
+            } finally {
+                setIsLoadingAI(false);
+            }
+        };
+
+        const fetchOpenAIImages = async () => {
+            if (!query) return;
+
+            try {
+                setIsLoadingAI(true);
+                const res = await fetch("http://localhost:5000/api/image/generate-dalle-image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        prompt: query,
+                        n: 3, // change this acc to pricing plans
+                    }),
+                });
+
+                const data = await res.json();
+
+                if (!data || !Array.isArray(data.imageUrls)) {
+                    console.warn("No DALL·E images returned");
+                    return;
+                }
+
+                const dalleImages = data.imageUrls.map((url) => ({
+                    url,
+                    alt: `Generated by DALL·E for ${query}`, // todo : remove this
+                    source: "openai",
+                }));
+
+                setImages((prev) => [...prev, ...dalleImages]); // append
+
+            } catch (err) {
+                console.error("Error fetching DALL·E images:", err);
+            } finally {
+                setIsLoadingAI(false); // MODIFIED
+            }
+        };
+
+        fetchOpenAIImages(); // runs only when user actually searched
+        fetchStockImages(); // always runs with fallback topic
+        fetchVertexImages(); // runs only when user actually searched
+    }, [query, stockQuery, imageSize]);
+
+    // split images for divider
+    const stockImages = images.filter((img) => img.source === "pexels" || img.source === "pixabay");
+    const aiImages = images.filter((img) => img.source === "vertex" || img.source === "openai");
     return (
         <Layout>
-            <section className="py-10 w-full flex flex-col items-center">
+            <section className="py-5 w-full flex flex-col items-center">
                 <div className="w-11/12 max-w-7xl">
-                    <h2 className="text-3xl font-bold text-left mb-4">
+                    <h2 className="text-2xl font-bold text-left mb-4">
                         Showing results for{" "}
                         <span className="text-black">post design for {query}</span>
                     </h2>
 
-                    <div className="flex flex-wrap gap-3 mb-6">
-                        {filters.map((filter, index) => (
-                            <button
-                                key={index}
-                                className={`px-4 py-2 rounded-full text-sm font-medium transition duration-300 ${index === 0
-                                        ? "bg-gradient-to-r from-[#c731cd] to-[#a855f7] text-white"
-                                        : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-                                    }`}
-                            >
-                                {filter}
-                            </button>
-                        ))}
-                    </div>
+                    {/* AI IMAGE SECTION */}
+                    {query && (
+                        <>
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold mb-3">
+                                    {isLoadingAI ? "Please wait while we generate AI Images" : "Choose from AI-generated images"}
+                                </h3>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
 
-                    {/* Image Templates Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                        {[...Array(6)].map((_, index) => (
+                                    {isLoadingAI &&
+                                        Array.from({ length: 4 }).map((_, i) => (
+                                            <div key={i} className="shimmer-box" />
+                                        ))}
+
+
+                                    {/* AI-generated images */}
+                                    {aiImages.map((img, index) => (
+                                        <div
+                                            key={img.url || index}
+                                            onClick={() => setSelectedImage(img.url)}
+                                            className={`group relative cursor-pointer border-2 overflow-hidden transition duration-300 shadow-md hover:shadow-lg ${selectedImage === img.url ? "border-[#C731CD]" : "border-transparent"
+                                                }`}
+                                        >
+                                            <div className="w-full bg-white">
+                                                <img
+                                                    src={img.url}
+                                                    alt={img.alt || `Image ${index}`}
+                                                    loading="lazy"
+                                                    className="w-full h-auto object-contain"
+                                                />
+                                            </div>
+                                            <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[10px] text-white italic bg-black/40 px-2 py-[1px] rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                                {img.source === "vertex"
+                                                    ? "AI Image via Google Vertex"
+                                                    : "Generated by OpenAI DALL·E"}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* DIVIDER */}
+                            {stockImages.length > 0 && <hr className="my-6 border-t-2 border-gray-300" />}
+                        </>
+                    )}
+                    
+                    {/* STOCK IMAGE GRID */}
+                    <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
+                        {stockImages.map((img, index) => (
                             <div
-                                key={index}
-                                onClick={() => setSelectedImage(sampleImage)}
-                                className={`relative rounded-lg border-2 transition duration-300 cursor-pointer ${selectedImage === sampleImage ? "border-[#C731CD]" : "border-transparent"
+                                key={img.url || index}
+                                onClick={() => setSelectedImage(img.url)}
+                                className={`group relative cursor-pointer border-2 rounded-lg overflow-hidden transition duration-300 shadow-md hover:shadow-lg ${selectedImage === img.url ? "border-[#C731CD]" : "border-transparent"
                                     }`}
                             >
-                                <img
-                                    src={sampleImage}
-                                    alt="Generated"
-                                    className="w-full h-auto object-cover rounded-lg"
-                                />
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-sm p-2 rounded-b-lg">
-                                    <h3 className="font-semibold">What EXPERTS say?</h3>
-                                    <p className="text-xs">
-                                        Incredible! It's best! I am recording my podcasts from 1-2
-                                        years, it actually is helping a lot, no more hires for sound
-                                        engineers.
-                                    </p>
+                                <div className="w-full bg-white">
+                                    <img
+                                        src={img.url}
+                                        alt={img.alt || `Image ${index}`}
+                                        loading="lazy"
+                                        className="w-full h-auto object-contain"
+                                    />
+                                </div>
+                                <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 text-[10px] text-white italic bg-black/40 px-2 py-[1px] rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                                    {img.source === "pexels"
+                                        ? `Photo by ${img.photographer || "Photographer"} on Pexels`
+                                        : "Image from Pixabay"}
                                 </div>
                             </div>
                         ))}
@@ -113,15 +317,23 @@ const Search = () => {
                     {/* Selected Items Section */}
                     {selectedImage && selectedTemplate !== null && (
                         <>
-                            <hr className="my-12 border-t-2 border-gray-300" />
-                            <h2 className="text-xl font-bold text-gray-800 mb-4">
+                            <h2 className="my-12 text-xl font-bold text-gray-800 mb-4">
                                 Would You Like This
                             </h2>
 
                             <div className="flex flex-col md:flex-row items-start gap-6">
-                                {/* Selected Template */}
                                 <div className="w-full md:w-1/2">
-                                    <div className="bg-white p-6 rounded-lg shadow-md border-2 border-[#C731CD]">
+                                    <div className="w-full rounded-lg overflow-hidden border-2 border-[#FFFFFF]">
+                                        <img
+                                            src={selectedImage}
+                                            alt="Selected"
+                                            className="w-full h-auto object-contain"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="w-full md:w-1/2">
+                                    <div className="bg-white p-6 rounded-lg">
                                         <textarea
                                             value={templateText}
                                             onChange={(e) => setTemplateText(e.target.value)}
@@ -132,44 +344,17 @@ const Search = () => {
 
                                     {/* Next Button */}
                                     <button
-                                        className="w-full mt-4 px-6 py-3 text-white text-lg font-medium bg-[#C731CD] rounded-lg hover:bg-[#a855f7] transition duration-300"
+                                        className="w-full mt-4 px-6 py-3 text-lg font-medium bg-[#C731CD] text-white rounded-lg border-2 border-[#C731CD] transition duration-300 hover:bg-white hover:text-[#C731CD]"
                                         onClick={() => {
                                             const postDTO = new ImagePostDTO({
-                                              imageUrl: selectedImage,
-                                              caption: templateText,
+                                                imageUrl: selectedImage,
+                                                caption: templateText,
                                             });
                                             navigate("/search/finalize", { state: { post: postDTO } });
-                                          }}                                          
+                                        }}
                                     >
                                         Next
                                     </button>
-
-                                </div>
-
-                                {/* Selected Image */}
-                                <div className="w-full md:w-1/2">
-                                    <img
-                                        src={selectedImage}
-                                        alt="Selected"
-                                        className={`w-full h-auto rounded-lg border-2 border-[#C731CD] ${imageSize === "1:1" ? "aspect-square" : "aspect-[16/9]"
-                                            }`}
-                                    />
-
-                                    {/* Image Size Selection */}
-                                    <div className="flex gap-3 mt-4">
-                                        {["1:1", "16:9"].map((size) => (
-                                            <button
-                                                key={size}
-                                                onClick={() => setImageSize(size)}
-                                                className={`px-4 py-2 text-sm rounded-lg transition duration-300 ${imageSize === size
-                                                        ? "bg-[#C731CD] text-white"
-                                                        : "bg-gray-200 hover:bg-gray-300"
-                                                    }`}
-                                            >
-                                                {size}
-                                            </button>
-                                        ))}
-                                    </div>
                                 </div>
                             </div>
                         </>

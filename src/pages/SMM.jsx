@@ -70,7 +70,7 @@ const SMM = () => {
         event.data?.source !== "linkedin-oauth"
       ) return;
 
-      // ✅ Process message
+      // Process message
       const status = event.data.status;
       switch (status) {
         case "success":
@@ -98,26 +98,11 @@ const SMM = () => {
 
     window.addEventListener("message", listener);
 
-    // Optional: Cleanup listener after 1 minute
     setTimeout(() => {
       window.removeEventListener("message", listener);
       clearInterval(checkPopupClosed);
     }, 60000);
   };
-
-  // const handleDisconnect = async (accountId) => {
-  //   try {
-  //     await axios.patch(
-  //       `http://localhost:5000/api/auth/linkedin/delete/${accountId}`,
-  //       {},
-  //       { headers: { "x-auth-token": token } }
-  //     );
-  //     setLinkedinAccounts(prev => prev.filter(acc => acc._id !== accountId));
-  //   } catch (error) {
-  //     console.error("Disconnect error", error);
-  //     setMessage("Failed to disconnect LinkedIn account.");
-  //   }
-  // };
 
   const confirmDisconnect = (accountId) => {
     setAccountToDisconnect(accountId);

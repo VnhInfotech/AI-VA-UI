@@ -32,13 +32,6 @@ const Settings = () => {
     }
   }, [user]);
 
-  // const handleImageUpload = (e) => {
-  //   const file = e.target.files[0];
-  //   if (file) {
-  //     setProfileImage(URL.createObjectURL(file));
-  //   }
-  // };
-
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     try {
