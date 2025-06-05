@@ -14,6 +14,7 @@ const SMM = () => {
   const [facebookAccounts, setFacebookAccounts] = useState([]);
   const [instagramAccounts, setInstagramAccounts] = useState([]);
   const [linkedinAccounts, setLinkedinAccounts] = useState([]);
+  const [xAccounts, setXAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const token = localStorage.getItem("token");
@@ -68,6 +69,22 @@ const SMM = () => {
     }
   };
 
+  const fetchXAccounts = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await axios.get("http://localhost:5000/api/auth/x/accounts", {
+        headers: { "x-auth-token": token },
+      });
+      setXAccounts(res?.data?.accounts || []);
+    } catch (err) {
+      console.error("Failed to fetch X accounts", err);
+      setMessage("Error fetching X accounts.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedPlatform === "linkedin") {
       fetchLinkedInAccounts();
@@ -75,6 +92,8 @@ const SMM = () => {
       fetchFacebookAccounts();
     } else if (selectedPlatform === "instagram") {
       fetchInstagramAccounts();
+    } else if (selectedPlatform === "x") {
+      fetchXAccounts();
     }
   }, [selectedPlatform]);
 
@@ -104,6 +123,8 @@ const SMM = () => {
           fetchFacebookAccounts();
         } else if (platform === 'instagram') {
           fetchInstagramAccounts();
+        } else if (platform === "x") {
+          fetchXAccounts();
         }
       }
     }, 500);
@@ -118,6 +139,9 @@ const SMM = () => {
       } else if (status === "LINKEDIN_ACCOUNT_CONNECTED") {
         setMessage("LinkedIn account connected successfully.");
         fetchLinkedInAccounts();
+      } else if (status === "X_ACCOUNT_CONNECTED") {
+        setMessage("X account connected successfully.");
+        fetchXAccounts();
       }
     };
 
@@ -370,7 +394,56 @@ const SMM = () => {
           )}
 
           {selectedPlatform === "x" && (
-            <p className="text-gray-600 text-sm">coming soon...</p>
+            <>
+              {xAccounts
+                .filter((acc) => acc.isEnabled)
+                .map((acc) => (
+                  <div
+                    key={acc._id}
+                    className="bg-white rounded-2xl p-6 shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={acc.profilePicture || "https://via.placeholder.com/48"}
+                        alt="Profile"
+                        className="rounded-full w-12 h-12 object-cover"
+                      />
+                      <div>
+                        <h2 className="font-semibold text-lg">{acc.username}</h2>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 flex-wrap items-center text-sm text-gray-500">
+                      <span>Total Posts: {acc.totalPosts ?? 0}</span>
+                      <button
+                        onClick={() => confirmDisconnect(acc._id)}
+                        className="px-4 py-1 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {(xAccounts.length === 0 ||
+                xAccounts.every((acc) => !acc.isEnabled)) ? (
+                <div className="text-gray-600 text-sm">
+                  <p>No active X accounts connected.</p>
+                  <button
+                    onClick={() => handleConnectNew("x")}
+                    className="mt-4 px-4 py-2 bg-black text-white rounded-md font-medium hover:bg-gray-800 transition"
+                  >
+                    + Connect New Account
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleConnectNew("x")}
+                  className="self-start mt-2 px-4 py-2 bg-black text-white rounded-md font-medium hover:bg-gray-800 transition"
+                >
+                  + Connect Another Account
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
