@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useUserContext } from "../context/UserContext";
 import { FaSearch } from "react-icons/fa";
+import { Toaster } from 'react-hot-toast';
 import {
   FaUser,
   FaBell,
@@ -17,12 +18,12 @@ import {
 } from "@mui/material";
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/images/logo.png";
-import { useSearchContext } from "../context/SearchContext"; 
+import { useSearchContext } from "../context/SearchContext";
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { searchQuery, setSearchQuery } = useSearchContext(); 
+  const { searchQuery, setSearchQuery } = useSearchContext();
   const { user, logout } = useUserContext();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -51,6 +52,7 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex flex-col min-h-screen w-full">
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       {/* Header */}
       <header className="w-full bg-white p-4 flex justify-between items-center shadow-md z-30 sticky top-0">
         <div className="flex items-center">
@@ -179,6 +181,7 @@ const Layout = ({ children }) => {
                   <MenuItem
                     onClick={() => {
                       logout();
+                      setSearchQuery(""); // Clear input on logout
                       handleMenuClose();
                     }}
                     sx={{
@@ -191,6 +194,7 @@ const Layout = ({ children }) => {
                   >
                     <FaSignOutAlt className="mr-2" /> Logout
                   </MenuItem>
+
                 </Menu>
               </div>
             </>
@@ -227,8 +231,8 @@ const Layout = ({ children }) => {
                   key={item.path}
                   onClick={() => navigate(item.path)}
                   className={`block w-full text-left flex items-center p-4 text-lg font-semibold rounded-lg transition-all duration-200 ${location.pathname.startsWith(item.path)
-                      ? "bg-[#C731CD] text-white"
-                      : "hover:bg-gray-200 hover:text-gray-900"
+                    ? "bg-[#C731CD] text-white"
+                    : "hover:bg-gray-200 hover:text-gray-900"
                     }`}
                 >
                   <span className="mr-3">{item.icon}</span> {item.name}

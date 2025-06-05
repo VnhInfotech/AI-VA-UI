@@ -11,6 +11,8 @@ import axios from "axios";
 
 const SMM = () => {
   const [selectedPlatform, setSelectedPlatform] = useState("linkedin");
+  const [facebookAccounts, setFacebookAccounts] = useState([]);
+  const [instagramAccounts, setInstagramAccounts] = useState([]);
   const [linkedinAccounts, setLinkedinAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,65 +36,88 @@ const SMM = () => {
     }
   };
 
+  const fetchFacebookAccounts = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await axios.get("http://localhost:5000/api/auth/facebook/accounts", {
+        headers: { "x-auth-token": token },
+      });
+      setFacebookAccounts(res?.data?.accounts || []);
+    } catch (err) {
+      console.error("Failed to fetch Facebook accounts", err);
+      setMessage("Error fetching Facebook accounts.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInstagramAccounts = async () => {
+    setLoading(true);
+    setMessage("");
+    try {
+      const res = await axios.get("http://localhost:5000/api/auth/instagram/accounts", {
+        headers: { "x-auth-token": token },
+      });
+      setInstagramAccounts(res?.data?.accounts || []);
+    } catch (err) {
+      console.error("Failed to fetch Instagram accounts", err);
+      setMessage("Error fetching Instagram accounts.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (selectedPlatform === "linkedin") {
       fetchLinkedInAccounts();
+    } else if (selectedPlatform === "facebook") {
+      fetchFacebookAccounts();
+    } else if (selectedPlatform === "instagram") {
+      fetchInstagramAccounts();
     }
   }, [selectedPlatform]);
 
-  const handleConnectNew = () => {
+  const handleConnectNew = (platform) => {
     if (!token) {
       alert("User token is missing. Please log in again.");
       return;
     }
 
     const popup = window.open(
-      `http://localhost:5000/api/auth/linkedin/redirect?token=${token}`,
-      "LinkedInAuth",
+      `http://localhost:5000/api/auth/${platform}/redirect?token=${token}`,
+      `${platform}-auth`,
       "width=600,height=700"
     );
 
     if (!popup) {
-      setMessage("❌ Failed to open popup. Please allow popups in your browser.");
+      setMessage("Failed to open popup. Please allow popups in your browser.");
       return;
     }
 
     const checkPopupClosed = setInterval(() => {
       if (popup.closed) {
         clearInterval(checkPopupClosed);
-        fetchLinkedInAccounts(); // Refresh the accounts once the popup closes
+        if (platform === "linkedin") {
+          fetchLinkedInAccounts();
+        } else if (platform === "facebook") {
+          fetchFacebookAccounts();
+        } else if (platform === 'instagram') {
+          fetchInstagramAccounts();
+        }
       }
     }, 500);
 
     const listener = (event) => {
-      if (
-        event.origin !== "http://localhost:3000" ||
-        event.data?.source !== "linkedin-oauth"
-      ) return;
+      if (event.origin !== "http://localhost:3000") return;
+      const status = event.data?.status || event.data?.type;
 
-      // Process message
-      const status = event.data.status;
-      switch (status) {
-        case "success":
-          setMessage("✅ LinkedIn account connected successfully.");
-          break;
-        case "already-exists":
-          setMessage("⚠️ This LinkedIn account is already connected.");
-          break;
-        case "error":
-          setMessage("❌ Something went wrong during LinkedIn login.");
-          break;
-        case "invalid-token":
-          setMessage("⚠️ Invalid or expired token.");
-          break;
-        case "unauthorized":
-          setMessage("❌ Unauthorized or invalid user.");
-          break;
-        case "missing-auth":
-          setMessage("⚠️ Missing authorization code or state.");
-          break;
-        default:
-          setMessage("⚠️ Unknown status received from LinkedIn.");
+      if (status === "FACEBOOK_ACCOUNT_CONNECTED") {
+        setMessage("Facebook account connected successfully.");
+        fetchFacebookAccounts();
+      } else if (status === "LINKEDIN_ACCOUNT_CONNECTED") {
+        setMessage("LinkedIn account connected successfully.");
+        fetchLinkedInAccounts();
       }
     };
 
@@ -104,6 +129,7 @@ const SMM = () => {
     }, 60000);
   };
 
+
   const confirmDisconnect = (accountId) => {
     setAccountToDisconnect(accountId);
     setShowConfirmPopup(true);
@@ -111,16 +137,27 @@ const SMM = () => {
 
   const proceedDisconnect = async () => {
     try {
-      await axios.patch(
-        `http://localhost:5000/api/auth/linkedin/delete/${accountToDisconnect}`,
-        {},
-        { headers: { "x-auth-token": token } }
-      );
-      setLinkedinAccounts(prev => prev.filter(acc => acc._id !== accountToDisconnect));
+      const url =
+        selectedPlatform === "linkedin"
+          ? `http://localhost:5000/api/auth/linkedin/delete/${accountToDisconnect}`
+          : `http://localhost:5000/api/auth/facebook/delete/${accountToDisconnect}`;
+
+      await axios.patch(url, {}, { headers: { "x-auth-token": token } });
+
+      if (selectedPlatform === "linkedin") {
+        setLinkedinAccounts((prev) =>
+          prev.filter((acc) => acc._id !== accountToDisconnect)
+        );
+      } else if (selectedPlatform === "facebook") {
+        setFacebookAccounts((prev) =>
+          prev.filter((acc) => acc._id !== accountToDisconnect)
+        );
+      }
+
       setMessage("Disconnected successfully.");
     } catch (error) {
       console.error("Disconnect error", error);
-      setMessage("Failed to disconnect LinkedIn account.");
+      setMessage(`Failed to disconnect ${selectedPlatform} account.`);
     } finally {
       setShowConfirmPopup(false);
       setAccountToDisconnect(null);
@@ -144,8 +181,8 @@ const SMM = () => {
               key={btn.id}
               onClick={() => setSelectedPlatform(btn.id)}
               className={`social-btn ${btn.gradient
-                  ? "bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600"
-                  : `bg-[${btn.color}]`
+                ? "bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600"
+                : `bg-[${btn.color}]`
                 } text-white ${selectedPlatform === btn.id ? "border-2 border-black" : ""
                 }`}
             >
@@ -219,11 +256,119 @@ const SMM = () => {
           )}
 
           {selectedPlatform === "instagram" && (
-            <p className="text-gray-600 text-sm">coming soon...</p>
+            <>
+              {instagramAccounts
+                .filter((acc) => acc.isEnabled)
+                .map((acc) => (
+                  <div
+                    key={acc._id}
+                    className="bg-white rounded-2xl p-6 shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={acc.profilePicture || "https://via.placeholder.com/48"}
+                        alt="Profile"
+                        className="rounded-full w-12 h-12 object-cover"
+                      />
+                      <div>
+                        <h2 className="font-semibold text-lg">{acc.username}</h2>
+                        {/* <div className="flex items-center text-sm text-gray-500 mt-1">
+                <FaEnvelope className="mr-2" />
+                {acc.email}
+              </div> */}
+                      </div>
+                    </div>
+                    <div className="flex gap-4 flex-wrap items-center text-sm text-gray-500">
+                      <span>Total Posts: {acc.totalPosts ?? 0}</span>
+                      <button
+                        onClick={() => confirmDisconnect(acc._id)}
+                        className="px-4 py-1 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {(instagramAccounts.length === 0 ||
+                instagramAccounts.every((acc) => !acc.isEnabled)) ? (
+                <div className="text-gray-600 text-sm">
+                  <p>No active Instagram accounts connected.</p>
+                  <button
+                    onClick={() => handleConnectNew("instagram")}
+                    className="mt-4 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md font-medium hover:from-pink-600 hover:to-purple-700 transition"
+                  >
+                    + Connect New Account
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleConnectNew("instagram")}
+                  className="self-start mt-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-md font-medium hover:from-pink-600 hover:to-purple-700 transition"
+                >
+                  + Connect Another Account
+                </button>
+              )}
+            </>
           )}
+
           {selectedPlatform === "facebook" && (
-            <p className="text-gray-600 text-sm">coming soon...</p>
+            <>
+              {facebookAccounts
+                .filter((acc) => acc.isEnabled)
+                .map((acc) => (
+                  <div
+                    key={acc._id}
+                    className="bg-white rounded-2xl p-6 shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
+                  >
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={acc.profilePicture || "https://via.placeholder.com/48"}
+                        alt="Profile"
+                        className="rounded-full w-12 h-12 object-cover"
+                      />
+                      <div>
+                        <h2 className="font-semibold text-lg">{acc.name}</h2>
+                        <div className="flex items-center text-sm text-gray-500 mt-1">
+                          <FaEnvelope className="mr-2" />
+                          {acc.email}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-4 flex-wrap items-center text-sm text-gray-500">
+                      <span>Total Posts: {acc.totalPosts ?? 0}</span>
+                      <button
+                        onClick={() => confirmDisconnect(acc._id)}
+                        className="px-4 py-1 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 transition"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {(facebookAccounts.length === 0 ||
+                facebookAccounts.every((acc) => !acc.isEnabled)) ? (
+                <div className="text-gray-600 text-sm">
+                  <p>No active Facebook accounts connected.</p>
+                  <button
+                    onClick={() => handleConnectNew("facebook")}
+                    className="mt-4 px-4 py-2 bg-[#1877F2] text-white rounded-md font-medium hover:bg-[#0e5ec0] transition"
+                  >
+                    + Connect New Account
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleConnectNew("facebook")}
+                  className="self-start mt-2 px-4 py-2 bg-[#1877F2] text-white rounded-md font-medium hover:bg-[#0e5ec0] transition"
+                >
+                  + Connect Another Account
+                </button>
+              )}
+            </>
           )}
+
           {selectedPlatform === "x" && (
             <p className="text-gray-600 text-sm">coming soon...</p>
           )}

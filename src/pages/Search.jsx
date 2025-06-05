@@ -10,63 +10,28 @@ const shimmerStyles = `
   position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
-  min-height: 150px;
-  border-radius: 6px;
-  background: linear-gradient(90deg, #eeeeee 25%, #dddddd 50%, #eeeeee 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.4s infinite linear;
+  border-radius: 12px;
+  border: 2px solid white;
   overflow: hidden;
-  z-index: 1;
-}
-
-.shimmer-box::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  z-index: -1;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg 270deg,
-    #C731CD 270deg 280deg,
-    transparent 280deg 360deg
+  background: linear-gradient(
+    135deg,
+    #f5f5f5 40%,               
+    rgba(255,255,255,0.6) 50%,
+    #f5f5f5 60% 
   );
-  animation: border-highlight-spin 4s linear infinite;
+  background-size: 400% 400%;
+  animation: diagonalShimmer 8s ease-in-out infinite;
 }
 
-// @keyframes border-highlight-spin {
-//   0% {
-//     transform: rotate(0deg);
-//   }
-//   100% {
-//     transform: rotate(360deg);
-//   }
-// }
-
-.shimmer-box::after {
-  content: '';
-  position: absolute;
-  inset: 4px;
-  background: white;
-  border-radius: inherit;
-  z-index: 0;
-}
-
-@keyframes shimmer {
+@keyframes diagonalShimmer {
   0% {
-    background-position: -200% 0;
+    background-position: 100% 100%;
+  }
+  50% {
+    background-position: 0% 0%;
   }
   100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes border-rotate {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
+    background-position: 100% 100%;
   }
 }
 `;
@@ -78,14 +43,24 @@ const Search = () => {
     const query = rawQuery && rawQuery.trim() !== "" ? rawQuery.trim() : null;
 
     // fallback stock image keyword if no search yet
-    const stockQuery = query || "nature"; // or "inspiration", "art", etc.
+    const stockQuery = query || "nature";
     const [images, setImages] = useState([]);
+    const [captions, setCaptions] = useState([]);
+    const [isLoadingCaptions, setIsLoadingCaptions] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [imageSize, setImageSize] = useState("1:1");
     const [templateText, setTemplateText] = useState(
         `Honoring Two Legends\n\n🔷 Truth & Non-Violence – Mahatma Gandhi\n🔷 Strength & Simplicity – Lal Bahadur Shastri\n\nLet’s follow their ideals for a stronger, united India!\n\n🇮🇳 Happy Gandhi & Shastri Jayanti! 🇮🇳`
     );
+
+    useEffect(() => {
+        setImages([]);
+        setCaptions([]);
+        setSelectedImage(null);
+        setSelectedTemplate(null);
+        setTemplateText("");
+    }, [query]);
 
     useEffect(() => {
         const style = document.createElement("style");
@@ -96,11 +71,11 @@ const Search = () => {
         };
     }, []);
 
-    const [isLoadingAI, setIsLoadingAI] = useState(false); // LOADER STATE
+    const [isLoadingAI, setIsLoadingAI] = useState(false);
     useEffect(() => {
         const fetchStockImages = async () => {
             try {
-                const stockImages = await searchImages(stockQuery); // stockQuery always safe
+                const stockImages = await searchImages(stockQuery);
                 setImages(stockImages);
             } catch (err) {
                 console.error("Error fetching stock images:", err);
@@ -108,7 +83,7 @@ const Search = () => {
         };
 
         const fetchVertexImages = async () => {
-            if (!query) return; // Only run if user explicitly searched something
+            if (!query) return;
 
             try {
                 setIsLoadingAI(true);
@@ -116,15 +91,18 @@ const Search = () => {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        prompt: query,
-                        sampleCount: 1,
-                        aspectRatio: imageSize,
+                        prompt: query
+                        // sampleCount: 3, // default or customize as needed
+                        // aspectRatio: imageSize,
                     }),
                 });
 
                 const data = await res.json();
                 const requestId = data.requestId;
-                if (!requestId) return console.warn("No requestId received");
+                if (!requestId) {
+                    console.warn("No requestId received");
+                    return;
+                }
 
                 const pollResult = async (retryCount = 15) => {
                     for (let i = 0; i < retryCount; i++) {
@@ -133,13 +111,13 @@ const Search = () => {
                         const res = await fetch(`http://localhost:5000/api/images/check-image-result/${requestId}`);
                         const result = await res.json();
 
-                        if (Array.isArray(result.imageBase64s)) {
-                            const vertexImages = result.imageBase64s.map((base64) => ({
-                                url: `data:image/png;base64,${base64}`,
+                        if (Array.isArray(result.imagePaths)) {
+                            const vertexImages = result.imagePaths.map((relativePath) => ({
+                                url: `http://localhost:5000/${relativePath}`,
                                 alt: `Generated by Vertex AI for ${query}`,
                                 source: "vertex",
                             }));
-                            setImages((prev) => [...prev, ...vertexImages]); // append
+                            setImages((prev) => [...prev, ...vertexImages]);
                             return;
                         }
 
@@ -153,7 +131,7 @@ const Search = () => {
 
                 await pollResult();
             } catch (err) {
-                console.error("Error fetching Imagen images:", err);
+                console.error("Error fetching Vertex AI images:", err);
             } finally {
                 setIsLoadingAI(false);
             }
@@ -168,8 +146,8 @@ const Search = () => {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        prompt: query,
-                        n: 3, // change this acc to pricing plans
+                        prompt: query
+                        // n: 3, // change this acc to pricing plans
                     }),
                 });
 
@@ -194,11 +172,46 @@ const Search = () => {
                 setIsLoadingAI(false); // MODIFIED
             }
         };
-
-        fetchOpenAIImages(); // runs only when user actually searched
-        fetchStockImages(); // always runs with fallback topic
-        fetchVertexImages(); // runs only when user actually searched
+        fetchVertexImages();
+        fetchOpenAIImages();
+        fetchStockImages();
     }, [query, stockQuery, imageSize]);
+
+    useEffect(() => {
+        const fetchCaptions = async () => {
+            const allCaptions = [];
+            try {
+                setIsLoadingCaptions(true);
+                const res = await fetch('http://localhost:5000/api/openai/generate-captions', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: query }),
+                });
+
+                const data = await res.json();
+
+                const cleaned = data.captions
+                    .filter(caption =>
+                        caption.trim() &&
+                        !/^suggested caption/i.test(caption.trim()) &&
+                        !caption.toLowerCase().includes("certainly")
+                    )
+                    .map(caption => caption.trim().replace(/^"+|"+$/g, ""))
+                    .map(caption => caption.replace(/[\]\[]+$/g, ""));
+
+                allCaptions.push(...cleaned.slice(0, 6));
+                setCaptions(allCaptions);
+            } catch (err) {
+                console.error("Caption fetch failed:", err);
+            } finally {
+                setIsLoadingCaptions(false);
+            }
+        };
+
+        if (query) {
+            fetchCaptions();
+        }
+    }, [query]);
 
     // split images for divider
     const stockImages = images.filter((img) => img.source === "pexels" || img.source === "pixabay");
@@ -215,7 +228,7 @@ const Search = () => {
                     {/* AI IMAGE SECTION */}
                     {query && (
                         <>
-                            <div className="mb-6">
+                            <div className="mb-3">
                                 <h3 className="text-lg font-semibold mb-3">
                                     {isLoadingAI ? "Please wait while we generate AI Images" : "Choose from AI-generated images"}
                                 </h3>
@@ -223,16 +236,17 @@ const Search = () => {
 
                                     {isLoadingAI &&
                                         Array.from({ length: 4 }).map((_, i) => (
-                                            <div key={i} className="shimmer-box" />
+                                            <div key={i} className="shimmer-box">
+                                                {/* <div className="shimmer-inner"></div> */}
+                                            </div>
                                         ))}
-
 
                                     {/* AI-generated images */}
                                     {aiImages.map((img, index) => (
                                         <div
                                             key={img.url || index}
                                             onClick={() => setSelectedImage(img.url)}
-                                            className={`group relative cursor-pointer border-2 overflow-hidden transition duration-300 shadow-md hover:shadow-lg ${selectedImage === img.url ? "border-[#C731CD]" : "border-transparent"
+                                            className={`group relative cursor-pointer border-2 rounded-lg overflow-hidden transition duration-300 shadow-md hover:shadow-lg ${selectedImage === img.url ? "border-[#C731CD]" : "border-transparent"
                                                 }`}
                                         >
                                             <div className="w-full bg-white">
@@ -257,7 +271,7 @@ const Search = () => {
                             {stockImages.length > 0 && <hr className="my-6 border-t-2 border-gray-300" />}
                         </>
                     )}
-                    
+
                     {/* STOCK IMAGE GRID */}
                     <div className="columns-1 sm:columns-2 md:columns-3 gap-4 space-y-4">
                         {stockImages.map((img, index) => (
@@ -288,30 +302,30 @@ const Search = () => {
                     <hr className="my-12 border-t-2 border-gray-300" />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                        {[...Array(6)].map((_, index) => (
-                            <div
-                                key={index}
-                                onClick={() => setSelectedTemplate(index)}
-                                className={`bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 cursor-pointer border-2 ${selectedTemplate === index ? "border-[#C731CD]" : "border-transparent"
-                                    }`}
-                            >
-                                <h3 className="font-semibold text-lg text-gray-800 mb-2">
-                                    A Tribute to Great Leaders 🇮🇳
-                                </h3>
-                                <p className="text-sm text-gray-700 mb-1">
-                                    ✨ "Be the change you wish to see in the world." - Mahatma Gandhi
-                                </p>
-                                <p className="text-sm text-gray-700 mb-1">
-                                    ✨ "Jai Jawan, Jai Kisan." - Lal Bahadur Shastri
-                                </p>
-                                <p className="text-sm text-gray-800 mt-2">
-                                    Let’s honor their legacy of truth, peace, and selfless service.
-                                </p>
-                                <p className="text-sm text-[#c731cd] font-medium mt-2">
-                                    🇮🇳 Happy Gandhi & Shastri Jayanti! 🇮🇳
-                                </p>
-                            </div>
-                        ))}
+                        {isLoadingCaptions ? (
+                            <p className="italic text-gray-500 col-span-full">
+                                Please wait while we generate captions for you...
+                            </p>
+                        ) : (
+                            captions.map((caption, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => {
+                                        setSelectedTemplate(index);
+                                        setTemplateText(caption);
+                                    }}
+                                    className={`bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition duration-300 cursor-pointer border-2 ${selectedTemplate === index ? "border-[#C731CD]" : "border-transparent"
+                                        }`}
+                                >
+                                    <h3 className="font-semibold text-lg text-gray-800 mb-2">
+                                        Suggested Caption {index + 1}
+                                    </h3>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                                        {caption}
+                                    </p>
+                                </div>
+                            ))
+                        )}
                     </div>
 
                     {/* Selected Items Section */}
