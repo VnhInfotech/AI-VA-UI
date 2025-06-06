@@ -51,7 +51,21 @@ class ImagePostDTO {
       facebookAccountId: this.selectedAccountId,
     };
   }
-
+toInstagramPayload() {
+  return {
+    instagramAccountId: this.selectedAccountId,
+    imageUrl: this.imageUrl,
+    caption: this.caption,
+  };
+}
+toInstagramSchedulePayload(scheduleDate) {
+  return {
+    instagramAccountId: this.selectedAccountId,
+    imageUrl: this.imageUrl,
+    caption: this.caption,
+    scheduledTime: scheduleDate,
+  };
+}
 }
 
 export default ImagePostDTO;

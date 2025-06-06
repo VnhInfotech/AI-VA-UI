@@ -176,6 +176,14 @@ const SMM = () => {
         setFacebookAccounts((prev) =>
           prev.filter((acc) => acc._id !== accountToDisconnect)
         );
+      } else if (selectedPlatform === "instagram") {
+        setInstagramAccounts((prev) =>
+          prev.filter((acc) => acc._id !== accountToDisconnect)
+        );
+      } else if (selectedPlatform === "x") {
+        setXAccounts((prev) =>
+          prev.filter((acc) => acc._id !== accountToDisconnect)
+        );
       }
 
       setMessage("Disconnected successfully.");
@@ -255,7 +263,6 @@ const SMM = () => {
                     </div>
                   </div>
                 ))}
-
 
               {(linkedinAccounts.length === 0 ||
                 linkedinAccounts.every(acc => !acc.isEnabled)) ? (
