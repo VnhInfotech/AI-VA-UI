@@ -66,6 +66,21 @@ toInstagramSchedulePayload(scheduleDate) {
     scheduledTime: scheduleDate,
   };
 }
+toXSchedulePayload(scheduleDate) {
+  return {
+    xAccountId: this.selectedAccountId,
+    imageUrl: this.imageUrl,
+    caption: this.caption,
+    scheduledTime: scheduleDate,
+  };
+}
+toXPayload() {
+  return {
+    xAccountId: this.selectedAccountId,
+    imageUrl: this.imageUrl,
+    caption: this.caption,
+  };
+}
 }
 
 export default ImagePostDTO;

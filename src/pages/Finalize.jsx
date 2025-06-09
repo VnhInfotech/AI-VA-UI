@@ -26,7 +26,7 @@ const Finalize = () => {
   const [selectedLinkedinAccount, setSelectedLinkedinAccount] = useState(null)
   const [facebookAccounts, setFacebookAccounts] = useState([])
   const [xAccounts, setXAccounts] = useState([])
-    const [selectedXAccount, setSelectedXAccount] = useState(null)
+  const [selectedXAccount, setSelectedXAccount] = useState(null)
   const [selectedFacebookAccount, setSelectedFacebookAccount] = useState(null)
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -59,6 +59,27 @@ const Finalize = () => {
 
     return expiry
   }
+
+  const getMinTime = (selectedDate) => {
+    const now = new Date();
+
+    // If the selected date is today
+    if (selectedDate && selectedDate.toDateString() === now.toDateString()) {
+      return now;
+    }
+
+    // For future dates, allow time from midnight
+    const startOfDay = new Date(selectedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    return startOfDay;
+  };
+
+  const getMaxTime = (selectedDate) => {
+    // Set end of selected day to 11:59 PM
+    const endOfDay = new Date(selectedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    return endOfDay;
+  };
 
   useEffect(() => {
     const { state } = location
@@ -423,6 +444,35 @@ const Finalize = () => {
         console.error("Post failed:", err)
         toast.error("Failed to post to Instagram.")
       }
+    } else if (selectedPlatform === "X") {
+      if (!selectedXAccount) {
+        toast.error("Please select an X (Twitter) account.")
+        return
+      }
+
+      try {
+        postDTO.caption = caption
+        postDTO.imageUrl = finalImage
+        postDTO.selectedAccountId = selectedXAccount
+
+        await axios.post(
+          "http://localhost:5000/api/auth/x/post", postDTO.toXPayload(), {
+          headers: { "x-auth-token": token },
+        })
+
+        if (draftId) {
+          await axios.put(
+            `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
+            {},
+            { headers: { "x-auth-token": token } }
+          )
+        }
+
+        toast.success("Posted to X successfully!")
+      } catch (err) {
+        console.error("Post to X failed:", err)
+        toast.error("Failed to post to X.")
+      }
     } else {
       toast(`${selectedPlatform} integration is coming soon.`)
     }
@@ -502,6 +552,24 @@ const Finalize = () => {
       } catch (err) {
         console.error("Failed to schedule post:", err)
         toast.error("Failed to schedule Instagram post.")
+      }
+    } else if (selectedPlatform === "X") {
+      if (!selectedXAccount) {
+        toast.error("Please select an X account.")
+        return
+      }
+      try {
+        await axios.post(
+          "http://localhost:5000/api/auth/x/schedule",
+          postDTO.toXSchedulePayload(scheduleDate),
+          {
+            headers: { "x-auth-token": token },
+          },
+        )
+        toast.success("X post scheduled successfully!")
+      } catch (err) {
+        console.error("Failed to schedule post:", err)
+        toast.error("Failed to schedule X post.")
       }
     } else {
       toast(`${selectedPlatform} scheduling is coming soon.`)
@@ -918,6 +986,8 @@ const Finalize = () => {
                       dateFormat="MMMM d, yyyy h:mm aa"
                       minDate={new Date()}
                       maxDate={expiryDate()}
+                      minTime={getMinTime(scheduleDate)}
+                      maxTime={getMaxTime(scheduleDate)}
                       className="border p-2 rounded-md w-full text-center"
                       calendarClassName="custom-datepicker-calendar"
                     />
