@@ -23,11 +23,11 @@ const Finalize = () => {
   const [schedule, setSchedule] = useState(false)
   const [scheduleDate, setScheduleDate] = useState(new Date())
   const [linkedinAccounts, setLinkedinAccounts] = useState([])
-  const [selectedLinkedinAccount, setSelectedLinkedinAccount] = useState(null)
+  const [selectedLinkedinAccount, setSelectedLinkedinAccount] = useState([])
   const [facebookAccounts, setFacebookAccounts] = useState([])
   const [xAccounts, setXAccounts] = useState([])
-  const [selectedXAccount, setSelectedXAccount] = useState(null)
-  const [selectedFacebookAccount, setSelectedFacebookAccount] = useState(null)
+  const [selectedXAccount, setSelectedXAccount] = useState([])
+  const [selectedFacebookAccount, setSelectedFacebookAccount] = useState([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [loading, setLoading] = useState(false)
   const scheduleRef = useRef(null)
@@ -47,7 +47,12 @@ const Finalize = () => {
   const [showFacebookPostConfirmation, setShowFacebookPostConfirmation] = useState(false)
   const [showFbPageModal, setShowFbPageModal] = useState(false)
   const [instagramAccounts, setInstagramAccounts] = useState([])
-  const [selectedInstagramAccount, setSelectedInstagramAccount] = useState(null)
+  const [selectedInstagramAccount, setSelectedInstagramAccount] = useState([])
+
+  const [selectedLinkedinAccounts, setSelectedLinkedinAccounts] = useState([])
+const [selectedFacebookAccounts, setSelectedFacebookAccounts] = useState([])
+const [selectedInstagramAccounts, setSelectedInstagramAccounts] = useState([])
+const [selectedXAccounts, setSelectedXAccounts] = useState([])
 
   const { selectedImage, templateText, prompt, setSelectedImage, setTemplateText } = usePostStore()
 
@@ -80,6 +85,23 @@ const Finalize = () => {
     endOfDay.setHours(23, 59, 59, 999);
     return endOfDay;
   };
+
+  const toggleSelectedLinkedinAccount = (id) => {
+  setSelectedLinkedinAccounts((prev) =>
+    prev.includes(id) ? prev.filter((accId) => accId !== id) : [...prev, id]
+  )
+}
+
+const toggleSelectedInstagramAccount = (id) => {
+  setSelectedInstagramAccounts((prev) =>
+    prev.includes(id) ? prev.filter((accId) => accId !== id) : [...prev, id]
+  )
+}
+const toggleSelectedXAccount = (id) => {
+  setSelectedXAccounts((prev) =>
+    prev.includes(id) ? prev.filter((accId) => accId !== id) : [...prev, id]
+  )
+}
 
   useEffect(() => {
     const { state } = location
@@ -333,248 +355,208 @@ const Finalize = () => {
     }
   }
 
-  const handleInstantPost = async () => {
-    // Reset schedule state when instant post is clicked
-    setSchedule(false)
+const handleInstantPost = async () => {
+  setSchedule(false)
 
-    if (selectedPlatform === "LinkedIn") {
-      if (!selectedLinkedinAccount) {
-        toast.error("Please select a LinkedIn account.")
-        return
-      }
-      try {
-        postDTO.caption = caption
-        postDTO.image = finalImage
-        postDTO.selectedAccountId = selectedLinkedinAccount
+  const postPromises = []
 
-        await axios.post("http://localhost:5000/api/auth/linkedin/post", postDTO.toLinkedInPayload(), {
-          headers: { "x-auth-token": token },
-        })
-
-        if (draftId) {
-          await axios.put(
-            `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
-            {},
-            {
-              headers: { "x-auth-token": token },
-            },
-          )
-        }
-
-        toast.success("Posted to LinkedIn successfully!")
-      } catch (err) {
-        console.error("Post failed:", err)
-        toast.error("Failed to post to LinkedIn.")
-      }
-    } else if (selectedPlatform === "Facebook") {
-      if (!selectedFacebookAccount) {
-        toast.error("Please select a Facebook account.")
-        return
-      }
-
-      // Only show Facebook post options when Facebook is selected
-      setShowFacebookPostOptions(true)
-
-      // If user has pages, show them options
-      if (hasFacebookPages) {
-        return
-      }
-
-      // If user has no pages, directly open feed dialog
-      try {
-        const res = await axios.post(
-          "http://localhost:5000/api/auth/facebook/post",
-          {
-            accountId: selectedFacebookAccount,
-            imageUrl: finalImage,
-            caption,
-            postTo: "feed",
-          },
-          { headers: { "x-auth-token": token } },
-        )
-
-        const feedDialogUrl = res.data.feedDialogUrl
-        // window.open(feedDialogUrl, "_blank", "width=600,height=500");
-        const feedWindow = window.open(feedDialogUrl, "_blank", "width=600,height=500")
-        const checkClosed = setInterval(() => {
-          if (feedWindow.closed) {
-            clearInterval(checkClosed)
-            setShowFacebookPostConfirmation(true)
-          }
-        }, 500)
-        toast.success("Opened Facebook share dialog!")
-
-        if (draftId) {
-          await axios.put(
-            `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
-            {},
-            { headers: { "x-auth-token": token } },
-          )
-        }
-      } catch (err) {
-        console.error("Feed dialog error:", err)
-        toast.error("Failed to post to Facebook feed.")
-      }
-    } else if (selectedPlatform === "Instagram") {
-      if (!selectedInstagramAccount) {
-        toast.error("Please select an Instagram account.")
-        return
-      }
-      try {
-        postDTO.caption = caption
-        postDTO.imageUrl = finalImage
-        postDTO.selectedAccountId = selectedInstagramAccount
-
-        await axios.post("http://localhost:5000/api/auth/instagram/post", postDTO.toInstagramPayload(), {
-          headers: { "x-auth-token": token },
-        })
-
-        if (draftId) {
-          await axios.put(
-            `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
-            {},
-            {
-              headers: { "x-auth-token": token },
-            },
-          )
-        }
-
-        toast.success("Posted to Instagram successfully!")
-      } catch (err) {
-        console.error("Post failed:", err)
-        toast.error("Failed to post to Instagram.")
-      }
-    } else if (selectedPlatform === "X") {
-      if (!selectedXAccount) {
-        toast.error("Please select an X (Twitter) account.")
-        return
-      }
-
-      try {
-        postDTO.caption = caption
-        postDTO.imageUrl = finalImage
-        postDTO.selectedAccountId = selectedXAccount
-
-        await axios.post(
-          "http://localhost:5000/api/auth/x/post", postDTO.toXPayload(), {
-          headers: { "x-auth-token": token },
-        })
-
-        if (draftId) {
-          await axios.put(
-            `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
-            {},
-            { headers: { "x-auth-token": token } }
-          )
-        }
-
-        toast.success("Posted to X successfully!")
-      } catch (err) {
-        console.error("Post to X failed:", err)
-        toast.error("Failed to post to X.")
-      }
-    } else {
-      toast(`${selectedPlatform} integration is coming soon.`)
+  const markDraftAsPosted = async () => {
+    if (draftId) {
+      await axios.put(
+        `http://localhost:5000/api/drafts/${draftId}/mark-posted`,
+        {},
+        { headers: { "x-auth-token": token } }
+      )
     }
   }
 
-  const handleScheduleConfirm = async () => {
-    if (selectedPlatform === "Facebook") {
-      if (!scheduleDate) {
-        toast.error("Please select a date and time.")
-        return
-      }
-
-      if (!selectedFacebookAccount) {
-        toast.error("Please select a Facebook account.")
-        return
-      }
-
-      // Facebook scheduling will be handled through the post options UI
-      // The setShowFbPageModal(true) line is removed
-
-      // If a page is selected, schedule the post
-      if (selectedFacebookPageId) {
-        try {
-          await axios.post(
-            "http://localhost:5000/api/auth/facebook/schedule",
-            {
-              accountId: selectedFacebookAccount,
-              imageUrl: finalImage,
-              caption,
-              postTo: "page",
-              selectedPageId: selectedFacebookPageId,
-              scheduleDate,
-            },
-            { headers: { "x-auth-token": token } },
-          )
-          toast.success("Facebook post scheduled successfully!")
-          setShowFacebookPostOptions(false)
-        } catch (err) {
-          console.error("Failed to schedule post:", err)
-          toast.error("Failed to schedule Facebook post.")
-        }
-      }
-    } else if (selectedPlatform === "LinkedIn") {
-      if (!selectedLinkedinAccount) {
-        toast.error("Please select a LinkedIn account.")
-        return
-      }
-
-      try {
-        await axios.post(
-          "http://localhost:5000/api/auth/linkedin/schedule",
-          postDTO.toLinkedInSchedulePayload(scheduleDate),
-          {
-            headers: { "x-auth-token": token },
-          },
-        )
-
-        toast.success("LinkedIn post scheduled successfully!")
-      } catch (err) {
-        console.error("Failed to schedule post:", err)
-        toast.error("Failed to schedule LinkedIn post.")
-      }
-    } else if (selectedPlatform === "Instagram") {
-      if (!selectedInstagramAccount) {
-        toast.error("Please select an Instagram account.")
-        return
-      }
-      try {
-        await axios.post(
-          "http://localhost:5000/api/auth/instagram/schedule",
-          postDTO.toInstagramSchedulePayload(scheduleDate),
-          {
-            headers: { "x-auth-token": token },
-          },
-        )
-        toast.success("Instagram post scheduled successfully!")
-      } catch (err) {
-        console.error("Failed to schedule post:", err)
-        toast.error("Failed to schedule Instagram post.")
-      }
-    } else if (selectedPlatform === "X") {
-      if (!selectedXAccount) {
-        toast.error("Please select an X account.")
-        return
-      }
-      try {
-        await axios.post(
-          "http://localhost:5000/api/auth/x/schedule",
-          postDTO.toXSchedulePayload(scheduleDate),
-          {
-            headers: { "x-auth-token": token },
-          },
-        )
-        toast.success("X post scheduled successfully!")
-      } catch (err) {
-        console.error("Failed to schedule post:", err)
-        toast.error("Failed to schedule X post.")
-      }
-    } else {
-      toast(`${selectedPlatform} scheduling is coming soon.`)
+  for (const accountId of selectedLinkedinAccounts) {
+    const payload = {
+      ...postDTO.toLinkedInPayload(),
+      accountId,
     }
+    postPromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/linkedin/post", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Posted to LinkedIn: ${accountId}`))
+        .catch(() => toast.error(`Failed to post to LinkedIn: ${accountId}`))
+    )
   }
+
+  for (const accountId of selectedInstagramAccounts) {
+const payload = {
+    instagramAccountId: accountId,
+    imageUrl: postDTO.imageUrl,
+    caption: postDTO.caption,
+  }
+
+    postPromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/instagram/post", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Posted to Instagram: ${accountId}`))
+        .catch(() => toast.error(`Failed to post to Instagram: ${accountId}`))
+    )
+  }
+
+  // X (Twitter)
+  for (const accountId of selectedXAccounts) {
+  const payload = {
+    xAccountId: accountId,
+    imageUrl: postDTO.imageUrl,
+    caption: postDTO.caption,
+  }
+  
+    postPromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/x/post", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Posted to X: ${accountId}`))
+        .catch(() => toast.error(`Failed to post to X: ${accountId}`))
+    )
+  }
+
+  if (selectedPlatform === "Facebook") {
+    if (!selectedFacebookAccount) {
+      toast.error("Please select a Facebook account.")
+      return
+    }
+
+    setShowFacebookPostOptions(true)
+
+    if (hasFacebookPages) {
+      return
+    }
+
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/api/auth/facebook/post",
+        {
+          accountId: selectedFacebookAccount,
+          imageUrl: finalImage,
+          caption,
+          postTo: "feed",
+        },
+        { headers: { "x-auth-token": token } }
+      )
+
+      const feedDialogUrl = res.data.feedDialogUrl
+      const feedWindow = window.open(feedDialogUrl, "_blank", "width=600,height=500")
+      const checkClosed = setInterval(() => {
+        if (feedWindow.closed) {
+          clearInterval(checkClosed)
+          setShowFacebookPostConfirmation(true)
+        }
+      }, 500)
+      toast.success("Opened Facebook share dialog!")
+
+      await markDraftAsPosted()
+    } catch (err) {
+      console.error("Feed dialog error:", err)
+      toast.error("Failed to post to Facebook feed.")
+    }
+
+    return
+  }
+
+  try {
+    await Promise.all(postPromises)
+    await markDraftAsPosted()
+  } catch (err) {
+    console.error("Error in posting:", err)
+  }
+}
+
+const handleScheduleConfirm = async () => {
+  if (!scheduleDate) {
+    toast.error("Please select a date and time.")
+    return
+  }
+
+  const schedulePromises = []
+
+  for (const accountId of selectedLinkedinAccounts) {
+    const payload = {
+      ...postDTO.toLinkedInSchedulePayload(scheduleDate),
+      accountId,
+    }
+    schedulePromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/linkedin/schedule", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Scheduled LinkedIn: ${accountId}`))
+        .catch(() => toast.error(`Failed to schedule LinkedIn: ${accountId}`))
+    )
+  }
+
+  for (const accountId of selectedInstagramAccounts) {
+    const payload = {
+      ...postDTO.toInstagramSchedulePayload(scheduleDate),
+      accountId,
+    }
+    schedulePromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/instagram/schedule", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Scheduled Instagram: ${accountId}`))
+        .catch(() => toast.error(`Failed to schedule Instagram: ${accountId}`))
+    )
+  }
+
+  for (const accountId of selectedXAccounts) {
+    const payload = {
+      ...postDTO.toXSchedulePayload(scheduleDate),
+      accountId,
+    }
+    schedulePromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/x/schedule", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Scheduled X: ${accountId}`))
+        .catch(() => toast.error(`Failed to schedule X: ${accountId}`))
+    )
+  }
+
+  for (const accountId of selectedFacebookAccounts) {
+    if (!selectedFacebookPageId) {
+      toast.error("Please select a Facebook Page to schedule.")
+      return
+    }
+
+    const payload = {
+      accountId,
+      imageUrl: finalImage,
+      caption,
+      postTo: "page",
+      selectedPageId: selectedFacebookPageId,
+      scheduleDate,
+    }
+
+    schedulePromises.push(
+      axios
+        .post("http://localhost:5000/api/auth/facebook/schedule", payload, {
+          headers: { "x-auth-token": token },
+        })
+        .then(() => toast.success(`Scheduled Facebook (Page): ${accountId}`))
+        .catch(() => toast.error(`Failed to schedule Facebook: ${accountId}`))
+    )
+  }
+
+  // Execute all scheduling
+  try {
+    await Promise.all(schedulePromises)
+    setShowFacebookPostOptions(false)
+  } catch (err) {
+    console.error("Error in scheduling:", err)
+  }
+}
 
   const handleCropConfirm = () => {
     if (cropper) {
@@ -688,28 +670,40 @@ const Finalize = () => {
               <div className="flex flex-wrap md:flex-nowrap justify-center gap-2 w-full max-w-[500px] mx-auto">
                 <button
                   onClick={() => handlePlatformSelect("LinkedIn")}
-                  className="flex items-center justify-center gap-1 bg-[#0077b5] text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm hover:opacity-80 transition-opacity duration-200"
+                  className={`flex items-center justify-center gap-1 bg-[#0077b5] text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm transition-opacity duration-200 ${selectedPlatform === "LinkedIn"
+                      ? "opacity-70"
+                      : "hover:opacity-80"
+                    }`}
                 >
                   <FaLinkedinIn /> LinkedIn
                 </button>
 
                 <button
                   onClick={() => handlePlatformSelect("Instagram")}
-                  className="flex items-center justify-center gap-1 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm hover:opacity-80 transition-opacity duration-200"
+                  className={`flex items-center justify-center gap-1 bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm transition-opacity duration-200 ${selectedPlatform === "Instagram"
+                      ? "opacity-70"
+                      : "hover:opacity-80"
+                    }`}
                 >
                   <FaInstagram /> Instagram
                 </button>
 
                 <button
                   onClick={() => handlePlatformSelect("Facebook")}
-                  className="flex items-center justify-center gap-1 bg-[#1877f2] text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm hover:opacity-80 transition-opacity duration-200"
+                  className={`flex items-center justify-center gap-1 bg-[#1877f2] text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm transition-opacity duration-200 ${selectedPlatform === "Facebook"
+                      ? "opacity-70"
+                      : "hover:opacity-80"
+                    }`}
                 >
                   <FaFacebookF /> Facebook
                 </button>
 
                 <button
                   onClick={() => handlePlatformSelect("X")}
-                  className="flex items-center justify-center gap-1 bg-black text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm hover:opacity-80 transition-opacity duration-200"
+                  className={`flex items-center justify-center gap-1 bg-black text-white font-semibold rounded-lg px-4 py-2 w-[120px] text-sm transition-opacity duration-200 ${selectedPlatform === "X"
+                      ? "opacity-70"
+                      : "hover:opacity-80"
+                    }`}
                 >
                   <FaXTwitter /> X
                 </button>
@@ -751,9 +745,9 @@ const Finalize = () => {
                         linkedinAccounts.map((acc) => (
                           <div
                             key={acc._id}
-                            onClick={() => setSelectedLinkedinAccount(acc._id)}
+                            onClick={() => toggleSelectedLinkedinAccount(acc._id)}
                             className={`flex items-center justify-between gap-4 border p-4 rounded-xl cursor-pointer transition
-                              ${selectedLinkedinAccount === acc._id
+                              ${selectedLinkedinAccounts.includes(acc._id)
                                 ? "border-[#C731CD] bg-[#FBE8FD] shadow-md"
                                 : "border-gray-200 hover:border-[#C731CD] hover:bg-[#f9e2fb]"
                               }`}
@@ -861,9 +855,9 @@ const Finalize = () => {
                         instagramAccounts.map((acc) => (
                           <div
                             key={acc._id}
-                            onClick={() => setSelectedInstagramAccount(acc._id)}
+                            onClick={() => toggleSelectedInstagramAccount(acc._id)}
                             className={`flex items-center justify-between gap-4 border p-4 rounded-xl cursor-pointer transition
-                              ${selectedInstagramAccount === acc._id
+                              ${selectedInstagramAccounts.includes(acc._id)
                                 ? "border-[#C731CD] bg-[#FBE8FD] shadow-md"
                                 : "border-gray-200 hover:border-[#C731CD] hover:bg-[#f9e2fb]"
                               }`} >
@@ -915,9 +909,9 @@ const Finalize = () => {
                         xAccounts.map((acc) => (
                           <div
                             key={acc._id}
-                            onClick={() => setSelectedXAccount(acc._id)}
+                            onClick={() => toggleSelectedXAccount(acc._id)}
                             className={`flex items-center justify-between gap-4 border p-4 rounded-xl cursor-pointer transition
-                ${selectedXAccount === acc._id
+                ${selectedXAccounts.includes(acc._id)
                                 ? "border-[#C731CD] bg-[#FBE8FD] shadow-md"
                                 : "border-gray-200 hover:border-[#C731CD] hover:bg-[#f9e2fb]"}`
                             }

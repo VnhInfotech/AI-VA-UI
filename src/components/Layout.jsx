@@ -40,6 +40,12 @@ const Layout = ({ children }) => {
     }
   }, [user, navigate]);
 
+  const handleKeyDown = (e) => {
+  if (e.key === "Enter") {
+    navigate(`/search?q=${searchQuery}`);
+  }
+};
+
   const menuItems = [
     { name: "Search", path: "/search", icon: "🔍" },
     { name: "SMM", path: "/smm", icon: "📣" },
@@ -75,6 +81,7 @@ const Layout = ({ children }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Describe your idea in words and let AI create a stunning image for you!"
               className="w-full pl-14 pr-32 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C731CD] transition-all text-lg"
             />
