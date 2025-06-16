@@ -264,25 +264,19 @@ const SMM = () => {
                   </div>
                 ))}
 
-              {(linkedinAccounts.length === 0 ||
-                linkedinAccounts.every(acc => !acc.isEnabled)) ? (
+              {linkedinAccounts.length === 0 ||
+                linkedinAccounts.every(acc => !acc.isEnabled) ? (
                 <div className="text-gray-600 text-sm">
                   <p>No active LinkedIn accounts connected.</p>
                   <button
-                    onClick={handleConnectNew}
+                    onClick={() => handleConnectNew("linkedin")}
                     className="mt-4 px-4 py-2 bg-[#0A66C2] text-white rounded-md font-medium hover:bg-[#004182] transition"
                   >
                     + Connect New Account
                   </button>
                 </div>
-              ) : (
-                <button
-                  onClick={handleConnectNew}
-                  className="self-start mt-2 px-4 py-2 bg-[#0A66C2] text-white rounded-md font-medium hover:bg-[#004182] transition"
-                >
-                  + Connect Another Account
-                </button>
-              )}
+              ) : null}
+
             </>
           )}
 

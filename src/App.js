@@ -16,7 +16,8 @@ import { SearchProvider } from "./context/SearchContext";
 import Drafts from './pages/Drafts';
 import Email from './pages/Email';
 import SEO from './pages/SEO';
-import SMS from './pages/SMS'
+import SMS from './pages/SMS';
+import AllPages from './pages/AllPages';
 
 function App() {
   return (
@@ -46,6 +47,7 @@ function App() {
               <Route path="/seo" element={<SEO />} />
               <Route path="/sms" element={<SMS />} />
               <Route path="/email" element={<Email />} />
+              <Route path="/all-pages" element={<AllPages />} />
             </Routes>
           </main>
         </div>

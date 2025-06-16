@@ -54,6 +54,7 @@ const Layout = ({ children }) => {
     { name: "SMS", path: "/sms", icon: "📱" },
     { name: "Email", path: "/email", icon: "✉️" },
     { name: "Analytics", path: "/analytics", icon: "📊" },
+    {name: "All Pages", path: "/all-pages", icon: "📄"}
   ];
 
   return (
