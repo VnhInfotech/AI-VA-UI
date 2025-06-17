@@ -6,17 +6,18 @@ import { FaXTwitter } from "react-icons/fa6"
 import PostDetailDialog from "../components/post-detail-dialog"
 import ImagePostDTO from "../utils/ImagePostDTO";
 import { useNavigate } from "react-router-dom";
-import History from "../assets/images/History.png" 
+import History from "../assets/images/History.png"
 
 const AllPosts = () => {
   const [posts, setPosts] = useState([])
   const [scheduledPosts, setScheduledPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [postDetailsMap, setPostDetailsMap] = useState({});
   const token = localStorage.getItem("token")
   const [activeDropdown, setActiveDropdown] = useState(null)
   const [detailPost, setDetailPost] = useState(null)
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     fetchAllPosts()
   }, [])
@@ -55,54 +56,67 @@ const AllPosts = () => {
     try {
       const { data } = await axios.get("http://localhost:5000/api/posts/all", {
         headers: { "x-auth-token": token },
-      })
+      });
 
-      const groupByMasterPost = {}
+      const groupByMasterPost = {};
+      const fullPostMap = {};
 
-      const addPublished = (postList, platform) => {
-        for (const post of postList || []) {
-          const masterId = post.masterPostId || post._id
-          if (!groupByMasterPost[masterId]) {
-            groupByMasterPost[masterId] = {
-              _id: masterId,
-              platforms: [],
-              posts: [],
-              isScheduled: false,
-            }
-          }
+      const addPostGroup = (post, isScheduled = false) => {
+        const groupId = post._id || post.masterPostId || post.postDraftScheduleId || Math.random().toString();
 
-          groupByMasterPost[masterId].platforms.push(platform)
-          groupByMasterPost[masterId].posts.push(normalizePostData(post, platform))
-        }
-      }
-
-addPublished(data.individualPosts?.facebook, "facebook")
-addPublished(data.individualPosts?.instagram, "instagram")
-addPublished(data.individualPosts?.linkedin, "linkedin")
-addPublished(data.individualPosts?.x, "x")
-
-      for (const sp of data.scheduledPosts || []) {
-        const masterId = sp._id || sp.masterPostId || Math.random().toString()
-        if (!groupByMasterPost[masterId]) {
-          groupByMasterPost[masterId] = {
-            _id: masterId,
+        if (!groupByMasterPost[groupId]) {
+          groupByMasterPost[groupId] = {
+            _id: groupId,
             platforms: [],
             posts: [],
-            isScheduled: true,
-            scheduledTime: sp.scheduledAt || sp.scheduledTime,
-          }
+            isScheduled: isScheduled,
+            scheduledTime: post.scheduledAt || post.scheduledTime,
+          };
         }
 
-        groupByMasterPost[masterId].platforms.push(...(sp.platforms || []))
-        groupByMasterPost[masterId].posts.push({
-  ...sp,
-  normalizedCaption: sp.caption || sp.content || "",
-  normalizedImage: sp.image || sp.imageUrl || sp.mediaUrls?.[0] || "",
-})
-      }
+        groupByMasterPost[groupId].platforms.push(...(post.platforms || []));
 
-      const unifiedPosts = Object.values(groupByMasterPost).map((group) => {
-        const firstPost = group.posts[0] || {}
+        let normalizedCaption = post.caption || post.content || post.generatedContent || "";
+        let normalizedImage = post.image || post.imageUrl || post.mediaUrls?.[0] || "";
+
+        let createdAt = post.createdAt || post.postedAt || post.scheduledTime || post.scheduledAt;
+
+        if (post.facebookPosts?.[0]?.postedAt) {
+          createdAt = post.facebookPosts[0].postedAt;
+        } else if (post.instagramPosts?.[0]?.postedAt) {
+          createdAt = post.instagramPosts[0].postedAt;
+        } else if (post.linkedinPosts?.[0]?.postedAt) {
+          createdAt = post.linkedinPosts[0].postedAt;
+        } else if (post.twitterPosts?.[0]?.postedAt) {
+          createdAt = post.twitterPosts[0].postedAt;
+        }
+
+        if (post.linkedinPosts?.length > 0) {
+          const linkedinPost = post.linkedinPosts[0];
+          normalizedCaption = linkedinPost.generatedContent || normalizedCaption;
+          normalizedImage = linkedinPost.originalContent || normalizedImage;
+        }
+
+        if (!fullPostMap[groupId]) {
+          fullPostMap[groupId] = post;
+        }
+
+        groupByMasterPost[groupId].posts.push({
+          ...post,
+          normalizedCaption,
+          normalizedImage,
+          createdAt,
+        });
+      };
+
+      // Process instant posts
+      (data.instantPosts || []).forEach(post => addPostGroup(post, false));
+
+      // Process scheduled posts
+      (data.scheduledPosts || []).forEach(post => addPostGroup(post, true));
+
+      const unifiedPosts = Object.values(groupByMasterPost).map(group => {
+        const firstPost = group.posts[0] || {};
         return {
           _id: group._id,
           platforms: [...new Set(group.platforms)],
@@ -111,19 +125,20 @@ addPublished(data.individualPosts?.x, "x")
           createdAt: firstPost.createdAt || firstPost.postedAt || firstPost.scheduledTime,
           scheduledTime: group.scheduledTime,
           isScheduled: group.isScheduled,
-        }
-      })
+        };
+      });
 
-      setPosts(unifiedPosts.filter((p) => !p.isScheduled))
-      setScheduledPosts(unifiedPosts.filter((p) => p.isScheduled))
+      setPosts(unifiedPosts.filter(p => !p.isScheduled));
+      setScheduledPosts(unifiedPosts.filter(p => p.isScheduled));
+      setPostDetailsMap(fullPostMap);
     } catch (err) {
-      console.error("Error fetching posts", err)
-      setPosts([])
-      setScheduledPosts([])
+      console.error("Error fetching posts", err);
+      setPosts([]);
+      setScheduledPosts([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -190,80 +205,83 @@ addPublished(data.individualPosts?.x, "x")
   }
 
   // Timer component for scheduled posts
-const CountdownTimer = ({ scheduledDate, masterPostId }) => {
-  const [timeLeft, setTimeLeft] = useState("")
-  const [posted, setPosted] = useState(false)
+  const CountdownTimer = ({ scheduledDate, masterPostId, refreshPosts }) => {
+    const [timeLeft, setTimeLeft] = useState("")
+    const [posted, setPosted] = useState(false)
 
-  useEffect(() => {
-    const updateCountdown = async () => {
-      const now = new Date().getTime()
-      const scheduled = new Date(scheduledDate).getTime()
-      const difference = scheduled - now
+    useEffect(() => {
+      const updateCountdown = async () => {
+        const now = new Date().getTime()
+        const scheduled = new Date(scheduledDate).getTime()
+        const difference = scheduled - now
 
-      if (difference > 0) {
-        const days = Math.floor(difference / (1000 * 60 * 60 * 24))
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
+        if (difference > 0) {
+          const days = Math.floor(difference / (1000 * 60 * 60 * 24))
+          const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60))
 
-        if (days > 0) setTimeLeft(`${days}D ${hours}H`)
-        else if (hours > 0) setTimeLeft(`${hours}H ${minutes}M`)
-        else setTimeLeft(`${minutes}M`)
-      } else {
-        // Scheduled time has passed — check post status
-        try {
-          const token = localStorage.getItem("token")
-          const { data } = await axios.get(
-            `http://localhost:5000/api/posts/check-status/${masterPostId}`,
-            {
-              headers: { "x-auth-token": token },
+          if (days > 0) setTimeLeft(`${days}D ${hours}H`)
+          else if (hours > 0) setTimeLeft(`${hours}H ${minutes}M`)
+          else setTimeLeft(`${minutes}M`)
+        } else {
+          // Scheduled time has passed — check post status
+          try {
+            const token = localStorage.getItem("token")
+            const { data } = await axios.get(
+              `http://localhost:5000/api/posts/check-status/${masterPostId}`,
+              {
+                headers: { "x-auth-token": token },
+              }
+            )
+
+            if (data.status === "posted") {
+              setPosted(true) // Mark as posted to hide the timer
+              refreshPosts()
+            } else {
+              setTimeLeft("0M")
             }
-          )
-
-          if (data.status === "posted") {
-            setPosted(true) // Mark as posted to hide the timer
-          } else {
-            setTimeLeft("0M")
+          } catch (err) {
+            console.error("Status check failed:", err)
           }
-        } catch (err) {
-          console.error("Status check failed:", err)
         }
       }
-    }
 
-    const intervalId = setInterval(updateCountdown, 30000)
-    updateCountdown()
+      const intervalId = setInterval(updateCountdown, 10000)
+      updateCountdown()
 
-    return () => clearInterval(intervalId)
-  }, [scheduledDate, masterPostId])
+      return () => clearInterval(intervalId)
+    }, [scheduledDate, masterPostId])
 
-  // Hide timer completely if posted
-  if (posted) return null
+    // Hide timer completely if posted
+    if (posted) return null
 
-  return (
-    <div className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
-      <img src={History} alt="clock" className="w-4 h-4" />
-      <span>{timeLeft}</span>
-    </div>
-  )
-}
-  const PostCard = ({ post, isScheduled = false }) => {
+    return (
+      <div className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded text-xs font-semibold flex items-center gap-1">
+        <img src={History} alt="clock" className="w-4 h-4" />
+        <span>{timeLeft}</span>
+      </div>
+    )
+  }
+
+  const PostCard = ({ post, isScheduled = false, refreshPosts }) => {
     const handleEdit = () => {
-setActiveDropdown(null)
+      setActiveDropdown(null)
 
-    const dto = new ImagePostDTO({
-      imageUrl: post.normalizedImage,
-      caption: post.normalizedCaption,
-      draftId: post._id,
-    })
+      const dto = new ImagePostDTO({
+        imageUrl: post.normalizedImage,
+        caption: post.normalizedCaption,
+        draftId: post._id,
+      })
 
-    navigate("/search/finalize", { state: { post: dto, draftId: post._id } })
-}
-
+      navigate("/search/finalize", { state: { post: dto, draftId: post._id } })
+    }
 
     const handleViewDetail = () => {
       console.log("View detail for post:", post._id)
       setActiveDropdown(null)
-      setDetailPost(post)
+      const fullPost = postDetailsMap[post._id] || post;
+      setDetailPost(fullPost)
+      console.log("detailPost value in AllPosts:", detailPost);
     }
 
     const toggleDropdown = (e, id) => {
@@ -296,7 +314,7 @@ setActiveDropdown(null)
                 alt="Post content"
                 className="w-full h-full object-cover"
               />
-{isScheduled && <CountdownTimer scheduledDate={post.scheduledTime} masterPostId={post._id} />}
+              {isScheduled && <CountdownTimer scheduledDate={post.scheduledTime} masterPostId={post._id} />}
 
             </div>
 
@@ -479,7 +497,12 @@ setActiveDropdown(null)
 
             <div className="flex flex-wrap gap-6 items-start justify-start" style={{ gap: "25px" }}>
               {allPosts.map((post, index) => (
-                <PostCard key={`${post._id || post.id}-${index}`} post={post} isScheduled={post.isScheduled} />
+                <PostCard
+                  key={`${post._id || post.id}-${index}`}
+                  post={post}
+                  isScheduled={post.isScheduled}
+                  refreshPosts={fetchAllPosts}
+                />
               ))}
             </div>
           </>

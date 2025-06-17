@@ -161,29 +161,32 @@ const SMM = () => {
 
   const proceedDisconnect = async () => {
     try {
-      const url =
-        selectedPlatform === "linkedin"
-          ? `http://localhost:5000/api/auth/linkedin/delete/${accountToDisconnect}`
-          : `http://localhost:5000/api/auth/facebook/delete/${accountToDisconnect}`;
+      let url = "";
+
+      if (selectedPlatform === "linkedin") {
+        url = `http://localhost:5000/api/auth/linkedin/delete/${accountToDisconnect}`;
+      } else if (selectedPlatform === "facebook") {
+        url = `http://localhost:5000/api/auth/facebook/delete/${accountToDisconnect}`;
+      } else if (selectedPlatform === "instagram") {
+        url = `http://localhost:5000/api/auth/instagram/delete/${accountToDisconnect}`;
+      } else if (selectedPlatform === "x") {
+        url = `http://localhost:5000/api/auth/x/delete/${accountToDisconnect}`;
+      }
+
+      if (!url) {
+        throw new Error("Unknown platform selected.");
+      }
 
       await axios.patch(url, {}, { headers: { "x-auth-token": token } });
 
       if (selectedPlatform === "linkedin") {
-        setLinkedinAccounts((prev) =>
-          prev.filter((acc) => acc._id !== accountToDisconnect)
-        );
+        setLinkedinAccounts((prev) => prev.filter((acc) => acc._id !== accountToDisconnect));
       } else if (selectedPlatform === "facebook") {
-        setFacebookAccounts((prev) =>
-          prev.filter((acc) => acc._id !== accountToDisconnect)
-        );
+        setFacebookAccounts((prev) => prev.filter((acc) => acc._id !== accountToDisconnect));
       } else if (selectedPlatform === "instagram") {
-        setInstagramAccounts((prev) =>
-          prev.filter((acc) => acc._id !== accountToDisconnect)
-        );
+        setInstagramAccounts((prev) => prev.filter((acc) => acc._id !== accountToDisconnect));
       } else if (selectedPlatform === "x") {
-        setXAccounts((prev) =>
-          prev.filter((acc) => acc._id !== accountToDisconnect)
-        );
+        setXAccounts((prev) => prev.filter((acc) => acc._id !== accountToDisconnect));
       }
 
       setMessage("Disconnected successfully.");
@@ -290,13 +293,16 @@ const SMM = () => {
                     className="bg-white rounded-2xl p-6 shadow flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6"
                   >
                     <div className="flex items-center gap-4">
-                      <img
+                      {/* <img
                         src={acc.profilePicture || "https://via.placeholder.com/48"}
                         alt="Profile"
                         className="rounded-full w-12 h-12 object-cover"
-                      />
+                      /> */}
                       <div>
                         <h2 className="font-semibold text-lg">{acc.username}</h2>
+                        <p className="text-sm text-gray-600">
+                          {acc.accountType}
+                        </p>
                         {/* <div className="flex items-center text-sm text-gray-500 mt-1">
                 <FaEnvelope className="mr-2" />
                 {acc.email}
@@ -479,7 +485,9 @@ const SMM = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-80 text-center space-y-4">
             <h2 className="text-lg font-semibold">Are you sure?</h2>
-            <p>Do you really want to disconnect this LinkedIn account?</p>
+            <p>
+              Do you really want to disconnect this {[selectedPlatform] || "social"} account?
+            </p>
             <div className="flex justify-center gap-4 mt-4">
               <button
                 onClick={proceedDisconnect}

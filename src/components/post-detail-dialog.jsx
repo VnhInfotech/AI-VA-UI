@@ -1,27 +1,54 @@
-"use client"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FaLinkedinIn, FaInstagram, FaFacebookF } from "react-icons/fa"
 import { FaXTwitter } from "react-icons/fa6"
 
 export default function PostDetailDialog({ isOpen, onClose, post }) {
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState(null)
+  const [showFullCaption, setShowFullCaption] = useState(false)
+
+  const platformPosts = {
+    linkedin: post.linkedinPosts || [],
+    instagram: post.instagramPosts || [],
+    facebook: post.facebookPosts || [],
+    x: post.xPosts || [],
+  }
+
+  useEffect(() => {
+    const firstAvailable = Object.entries(platformPosts).find(([_, posts]) => posts.length > 0)
+    setActiveTab(firstAvailable?.[0] || null)
+  }, [post])
 
   if (!isOpen) return null
 
+  console.log(post)
+  const image =
+    post.image ||
+    post.linkedinPosts?.[0]?.originalContent ||
+    post.instagramPosts?.[0]?.originalContent ||
+    post.facebookPosts?.[0]?.originalContent ||
+    post.xPosts?.[0]?.originalContent ||
+    "/placeholder.svg"
+
+  const caption =
+    post.caption ||
+    post.linkedinPosts?.[0]?.generatedContent ||
+    post.instagramPosts?.[0]?.generatedContent ||
+    post.facebookPosts?.[0]?.generatedContent ||
+    post.xPosts?.[0]?.generatedContent ||
+    ""
+
   const getPlatformIcon = (platform) => {
     const iconProps = { className: "w-5 h-5" }
-
     switch (platform.toLowerCase()) {
       case "linkedin":
-        return <FaLinkedinIn {...iconProps} />
+        return <FaLinkedinIn {...iconProps} style={{ color: "#0077b5" }} />
       case "instagram":
-        return <FaInstagram {...iconProps} />
+        return <FaInstagram {...iconProps} style={{ color: "#E4405F" }} />
       case "facebook":
-        return <FaFacebookF {...iconProps} />
+        return <FaFacebookF {...iconProps} style={{ color: "#1877f2" }} />
       case "x":
       case "twitter":
-        return <FaXTwitter {...iconProps} />
+        return <FaXTwitter {...iconProps} style={{ color: "#000000" }} />
       default:
         return null
     }
@@ -43,18 +70,53 @@ export default function PostDetailDialog({ isOpen, onClose, post }) {
     }
   }
 
+  const formatPostTime = (dateStr) => {
+    const date = new Date(dateStr)
+    return date.toLocaleString("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    })
+  }
+
+  const renderAccountCard = (account, date, platform) => {
+    if (!account) return null
+
+    const name = account.name || account.username || "Unknown"
+    const email = account.email || `@${account.username || "unknown"}`
+    const picture = account.profilePicture
+
+    return (
+      <div
+        className="flex items-center justify-between border rounded-xl p-4 shadow-sm"
+        style={{ backgroundColor: "#F5F7FA" }}
+      >
+        <div className="flex items-center space-x-3">
+          {picture && <img src={picture || "/placeholder.svg"} alt="Profile" className="w-10 h-10 rounded-full" />}
+          <div>
+            <p className="font-semibold">{name}</p>
+            <p className="text-sm text-gray-600">{email}</p>
+          </div>
+        </div>
+        <div>
+          <span className="text-xs font-medium text-white bg-green-600 px-2 py-1 rounded-full">
+            {formatPostTime(date)}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header with close button */}
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-semibold">Post Details</h2>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex justify-between items-center px-4 py-3 border-gray-200">
+          <h2 className="text-xl font-semibold">Post Detail</h2>
           <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"
-              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -69,159 +131,187 @@ export default function PostDetailDialog({ isOpen, onClose, post }) {
 
         {/* Content */}
         <div className="overflow-y-auto flex-1">
-          {/* Image */}
-          <div className="relative w-full h-64 md:h-80">
-            <img
-              src={post.normalizedImage || "/placeholder.svg?height=400&width=600"}
-              alt="Post content"
-              className="w-full h-full object-cover"
-            />
+          {/* Image and Caption Container */}
+          <div className="mx-6 mt-3 rounded-xl" style={{ backgroundColor: "#F5F5F5" }}>
+            {/* Image */}
+            <div className="w-full">
+              <img src={image || "/placeholder.svg"} alt="Post" className="w-full h-72 object-cover rounded-t-xl" />
+            </div>
+
+            {/* Caption */}
+            <div className="p-4">
+              <p className="text-gray-800 whitespace-pre-line">{caption}</p>
+            </div>
           </div>
 
-          {/* Caption */}
-          <div className="p-4">
-            <p className="text-gray-800">{post.normalizedCaption || "No caption available"}</p>
-          </div>
-
-          {/* Posted on */}
-          <div className="px-4 pb-2">
-            <p className="text-sm text-gray-500">
-              Posted on:{" "}
-              {new Date(post.createdAt || post.postedAt).toLocaleDateString("en-US", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              })}
-            </p>
-          </div>
-
-          {/* Tabs */}
-          <div className="px-4 pt-2 pb-4">
-            <div className="border-b">
-              <div className="flex space-x-2">
+          {/* Platform Buttons */}
+          <div className="grid grid-cols-4 gap-3 px-6 py-6">
+            {Object.entries(platformPosts)
+              .filter(([_, posts]) => posts.length > 0)
+              .map(([platform]) => (
                 <button
-                  onClick={() => setActiveTab("all")}
-                  className={`px-4 py-2 font-medium text-sm rounded-t-lg ${
-                    activeTab === "all"
-                      ? "border-b-2 border-[#C731CD] text-[#C731CD]"
-                      : "text-gray-500 hover:text-gray-700"
+                  key={platform}
+                  onClick={() => setActiveTab(platform)}
+                  className={`flex flex-col items-center p-3 rounded-xl shadow-sm text-sm font-medium transition-colors ${
+                    activeTab === platform ? "bg-white border-2" : ""
                   }`}
+                  style={{
+                    backgroundColor: activeTab === platform ? "#ffffff" : "#F8F8F8",
+                    borderColor: activeTab === platform ? "#C81B9A4D" : "transparent",
+                  }}
                 >
-                  All Platforms
+                  <div className="text-xl mb-1">{getPlatformIcon(platform)}</div>
+                  <span className="capitalize">{platform === "x" ? "X" : platform}</span>
                 </button>
-                {post.platforms && post.platforms.includes("linkedin") && (
-                  <button
-                    onClick={() => setActiveTab("linkedin")}
-                    className={`px-4 py-2 font-medium text-sm rounded-t-lg ${
-                      activeTab === "linkedin"
-                        ? "border-b-2 border-[#0077b5] text-[#0077b5]"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <FaLinkedinIn className="w-4 h-4" />
-                      <span>LinkedIn</span>
-                    </div>
-                  </button>
-                )}
-                {post.platforms && post.platforms.includes("facebook") && (
-                  <button
-                    onClick={() => setActiveTab("facebook")}
-                    className={`px-4 py-2 font-medium text-sm rounded-t-lg ${
-                      activeTab === "facebook"
-                        ? "border-b-2 border-[#1877f2] text-[#1877f2]"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <FaFacebookF className="w-4 h-4" />
-                      <span>Facebook</span>
-                    </div>
-                  </button>
-                )}
-                {post.platforms && post.platforms.includes("instagram") && (
-                  <button
-                    onClick={() => setActiveTab("instagram")}
-                    className={`px-4 py-2 font-medium text-sm rounded-t-lg ${
-                      activeTab === "instagram"
-                        ? "border-b-2 border-pink-500 text-pink-500"
-                        : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <FaInstagram className="w-4 h-4" />
-                      <span>Instagram</span>
-                    </div>
-                  </button>
-                )}
-                {post.platforms && (post.platforms.includes("x") || post.platforms.includes("twitter")) && (
-                  <button
-                    onClick={() => setActiveTab("x")}
-                    className={`px-4 py-2 font-medium text-sm rounded-t-lg ${
-                      activeTab === "x" ? "border-b-2 border-black text-black" : "text-gray-500 hover:text-gray-700"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <FaXTwitter className="w-4 h-4" />
-                      <span>X</span>
-                    </div>
-                  </button>
-                )}
-              </div>
-            </div>
+              ))}
+          </div>
 
-            {/* Tab content */}
-            <div className="py-4">
-              {activeTab === "all" && (
-                <div className="space-y-4">
-                  <h3 className="font-medium">Posted on platforms:</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {post.platforms &&
-                      post.platforms.map((platform, index) => (
-                        <div
-                          key={index}
-                          className={`px-3 py-1 rounded-full flex items-center space-x-1 ${getPlatformColor(platform)}`}
-                        >
-                          {getPlatformIcon(platform)}
-                          <span>{platform.charAt(0).toUpperCase() + platform.slice(1)}</span>
+          {/* Platform-Specific Details */}
+          <div className="space-y-4 px-6 pb-6">
+            {activeTab === "linkedin" &&
+              (platformPosts.linkedin.length ? (
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F5F7FA" }}>
+                  {platformPosts.linkedin.map((lp, idx) => (
+                    <div key={idx}>
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-3">
+                          {lp.linkedinAccount?.profilePicture && (
+                            <img
+                              src={lp.linkedinAccount.profilePicture || "/placeholder.svg"}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {lp.linkedinAccount?.name || lp.linkedinAccount?.username || "Unknown"}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {lp.linkedinAccount?.email || `@${lp.linkedinAccount?.username || "unknown"}`}
+                            </p>
+                          </div>
                         </div>
-                      ))}
-                  </div>
+                        <div>
+                          <span className="text-xs font-medium text-white bg-green-600 px-2 py-1 rounded-full">
+                            {formatPostTime(lp.postedAt || post.scheduledTime)}
+                          </span>
+                        </div>
+                      </div>
+                      {idx < platformPosts.linkedin.length - 1 && <div className="h-px bg-white mx-4"></div>}
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : (
+                <p className="text-sm text-gray-500">No LinkedIn post details.</p>
+              ))}
 
-              {activeTab === "linkedin" && (
-                <div className="space-y-4">
-                  <h3 className="font-medium">LinkedIn Post</h3>
-                  <p>Content specific to LinkedIn post</p>
-                  {/* Add LinkedIn specific details here */}
+            {activeTab === "facebook" &&
+              (platformPosts.facebook.length ? (
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F5F7FA" }}>
+                  {platformPosts.facebook.map((fp, idx) => (
+                    <div key={idx}>
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-3">
+                          {fp.facebookAccount?.profilePicture && (
+                            <img
+                              src={fp.facebookAccount.profilePicture || "/placeholder.svg"}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">
+                              {fp.facebookAccount?.pageName || fp.facebookAccount?.name || "Unknown"}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {fp.facebookAccount?.email || `@${fp.facebookAccount?.username || "unknown"}`}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Posted to: {fp.postedTo === "page" ? fp.pageName : "Feed"}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-white bg-green-600 px-2 py-1 rounded-full">
+                            {formatPostTime(fp.postedAt || post.scheduledTime)}
+                          </span>
+                        </div>
+                      </div>
+                      {idx < platformPosts.facebook.length - 1 && <div className="h-px bg-white mx-4"></div>}
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : (
+                <p className="text-sm text-gray-500">No Facebook post details.</p>
+              ))}
 
-              {activeTab === "facebook" && (
-                <div className="space-y-4">
-                  <h3 className="font-medium">Facebook Post</h3>
-                  <p>Content specific to Facebook post</p>
-                  {/* Add Facebook specific details here */}
+            {activeTab === "instagram" &&
+              (platformPosts.instagram.length ? (
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F5F7FA" }}>
+                  {platformPosts.instagram.map((ip, idx) => (
+                    <div key={idx}>
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-3">
+                          {ip.instagramAccount?.profilePicture && (
+                            <img
+                              src={ip.instagramAccount.profilePicture || "/placeholder.svg"}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">{`@${ip.instagramAccount?.username}` || "Unknown"}</p>
+                            <p className="text-sm text-gray-600">
+                              {ip.instagramAccount?.accountType || ip.instagramAccount?.email || "Unknown"}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-white bg-green-600 px-2 py-1 rounded-full">
+                            {formatPostTime(ip.postedAt || post.scheduledTime)}
+                          </span>
+                        </div>
+                      </div>
+                      {idx < platformPosts.instagram.length - 1 && <div className="h-px bg-white mx-4"></div>}
+                    </div>
+                  ))}
                 </div>
-              )}
+              ) : (
+                <p className="text-sm text-gray-500">No Instagram post details.</p>
+              ))}
 
-              {activeTab === "instagram" && (
-                <div className="space-y-4">
-                  <h3 className="font-medium">Instagram Post</h3>
-                  <p>Content specific to Instagram post</p>
-                  {/* Add Instagram specific details here */}
+            {activeTab === "x" &&
+              (platformPosts.x.length ? (
+                <div className="rounded-xl overflow-hidden" style={{ backgroundColor: "#F5F7FA" }}>
+                  {platformPosts.x.map((xp, idx) => (
+                    <div key={idx}>
+                      <div className="flex items-center justify-between p-4">
+                        <div className="flex items-center space-x-3">
+                          {xp.xAccount?.profilePicture && (
+                            <img
+                              src={xp.xAccount.profilePicture || "/placeholder.svg"}
+                              alt="Profile"
+                              className="w-10 h-10 rounded-full"
+                            />
+                          )}
+                          <div>
+                            <p className="font-semibold">{xp.xAccount?.name || "Unknown"}</p>
+                            <p className="text-sm text-gray-600">{`@${xp.xAccount?.username}` || "Unknown"}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-xs font-medium text-white bg-green-600 px-2 py-1 rounded-full">
+                            {formatPostTime(xp.postedAt || post.scheduledTime)}
+                          </span>
+                        </div>
+                      </div>
+                      {idx < platformPosts.x.length - 1 && <div className="h-px bg-white mx-4"></div>}
+                    </div>
+                  ))}
                 </div>
-              )}
-
-              {activeTab === "x" && (
-                <div className="space-y-4">
-                  <h3 className="font-medium">X Post</h3>
-                  <p>Content specific to X post</p>
-                  {/* Add X specific details here */}
-                </div>
-              )}
-            </div>
+              ) : (
+                <p className="text-sm text-gray-500">No X post details.</p>
+              ))}
           </div>
         </div>
       </div>

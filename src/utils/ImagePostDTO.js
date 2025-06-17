@@ -31,14 +31,13 @@ class ImagePostDTO {
     };
   }
 
-  // Payload for scheduling a LinkedIn post
-  toLinkedInSchedulePayload(scheduleDate) {
+  toLinkedInSchedulePayload(scheduleDate, linkedinAccountIds) {
     return {
       content: this.caption,
       imageUrl: this.imageUrl,
       scheduledTime: scheduleDate,
-      linkedinAccountId: this.selectedAccountId,
-    };
+      linkedinAccountIds,
+    }
   }
 
   // Payload for scheduling a Facebook Page post
@@ -58,22 +57,24 @@ toInstagramPayload() {
     caption: this.caption,
   };
 }
-toInstagramSchedulePayload(scheduleDate) {
-  return {
-    instagramAccountId: this.selectedAccountId,
-    imageUrl: this.imageUrl,
-    caption: this.caption,
-    scheduledTime: scheduleDate,
-  };
-}
-toXSchedulePayload(scheduleDate) {
-  return {
-    xAccountId: this.selectedAccountId,
-    imageUrl: this.imageUrl,
-    caption: this.caption,
-    scheduledTime: scheduleDate,
-  };
-}
+ 
+toInstagramSchedulePayload(scheduleDate, instagramAccountIds) {
+    return {
+      imageUrl: this.imageUrl,
+      caption: this.caption,
+      scheduledTime: scheduleDate,
+      instagramAccountIds,
+    };
+  }
+  toXSchedulePayload(scheduleDate, xAccountIds) {
+    return {
+      imageUrl: this.imageUrl,
+      caption: this.caption,
+      scheduledTime: scheduleDate,
+      xAccountIds,
+    }
+  }
+  
 toXPayload() {
   return {
     xAccountId: this.selectedAccountId,
